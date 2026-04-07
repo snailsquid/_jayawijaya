@@ -1,0 +1,27 @@
+title: Categories Test
+description: This module tests category functionality - has description for testing expand/collapse feature
+questions:
+  - question: Is this a test module?
+    answers:
+      - Yes
+      - No
+      - Maybe
+      - Definitely
+    correct_answer: 1
+    point: 1
+
+  - type: 2
+    question: What is the purpose of this module
+    answer: testing
+    case_sensitive: false
+
+  - question: Select all test-related words
+    answers:
+      - Test
+      - Quiz
+      - Water
+      - Exam
+    correct_answer:
+      - 1
+      - 2
+      - 4

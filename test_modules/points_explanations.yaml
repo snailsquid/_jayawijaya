@@ -1,0 +1,47 @@
+title: Points and Explanations
+description: Questions demonstrating various point values and explanation display
+questions:
+  - question: What is 10 + 20?
+    answers:
+    - 25
+    - 30
+    - 35
+    - 40
+    correct_answer: 2
+    explanation: 10 + 20 = 30
+    point: 1
+
+  - question: Which element has the atomic number 79?
+    answers:
+    - Silver
+    - Platinum
+    - Gold
+    - Copper
+    correct_answer: 3
+    explanation: Gold has atomic number 79 in the periodic table
+    point: 5
+
+  - type: 2
+    question: What is the square root of 144
+    answer: "12"
+    case_sensitive: false
+    point: 2
+
+  - question: In what year did World War II end?
+    answers:
+    - 1943
+    - 1944
+    - 1945
+    - 1946
+    correct_answer: 3
+    explanation: WWII ended in 1945 with the surrender of Japan
+    point: 3
+
+  - question: What is the largest continent?
+    answers:
+    - Africa
+    - North America
+    - Europe
+    - Asia
+    correct_answer: 4
+    point: 1

@@ -1,0 +1,35 @@
+title: Text Answer Questions
+description: Short and long text input questions with various configurations
+questions:
+  - type: 2
+    question: What is the chemical formula for water
+    answer: H2O
+    explanation: Water is composed of 2 hydrogen atoms and 1 oxygen atom
+    point: 1
+
+  - type: 2
+    question: What programming language is this quiz built with
+    answer: React
+    case_sensitive: false
+    explanation: The quiz uses React as the frontend framework
+    point: 2
+
+  - type: 2
+    question: What is the largest ocean on Earth
+    answer: Pacific
+    case_sensitive: false
+    point: 1
+
+  - type: 2
+    textbox_type: 2
+    question: Explain why the sky is blue in your own words
+    answer: Rayleigh scattering
+    case_sensitive: false
+    explanation: Short wavelength blue light is scattered more by molecules in the atmosphere
+    point: 3
+
+  - type: 2
+    question: What year is it currently
+    answer: "2026"
+    case_sensitive: false
+    point: 1

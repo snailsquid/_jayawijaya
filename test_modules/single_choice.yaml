@@ -1,0 +1,48 @@
+title: Single Choice Questions
+description: Basic single choice multiple choice questions with one correct answer each
+questions:
+  - question: What is the capital of France?
+    answers:
+    - London
+    - Paris
+    - Berlin
+    - Madrid
+    correct_answer: 2
+    explanation: Paris is the capital of France
+    point: 1
+
+  - question: Which planet is known as the Red Planet?
+    answers:
+    - Venus
+    - Mars
+    - Jupiter
+    - Saturn
+    correct_answer: 2
+    explanation: Mars appears red due to iron oxide on its surface
+
+  - question: What is 5 + 3?
+    answers:
+    - 6
+    - 7
+    - 8
+    - 9
+    correct_answer: 3
+    point: 2
+
+  - question: Which animal is a mammal?
+    answers:
+    - Shark
+    - Eagle
+    - Whale
+    - Frog
+    correct_answer: 3
+    explanation: Whales are marine mammals
+
+  - question: How many days are in a week?
+    answers:
+    - 5
+    - 6
+    - 7
+    - 8
+    correct_answer: 3
+    point: 1

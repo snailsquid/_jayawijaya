@@ -1,0 +1,54 @@
+title: Edge Cases and Mixed
+description: Mixed question types, case sensitivity, edge cases
+questions:
+  - question: Select all even numbers between 1-5
+    answers:
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+      - "5"
+    correct_answer:
+      - 2
+      - 4
+    point: 2
+
+  - type: 2
+    question: Type exactly JavaScript
+    answer: JavaScript
+    case_sensitive: true
+    explanation: Must match exact capitalization
+    point: 3
+
+  - type: 2
+    question: Type exactly python
+    answer: python
+    case_sensitive: true
+    point: 2
+
+  - question: What color do you get when you mix red and blue
+    answers:
+      - Green
+      - Orange
+      - Purple
+      - Yellow
+    correct_answer: 3
+    point: 1
+
+  - question: Select all that are true
+    answers:
+      - The earth is flat
+      - Water is wet
+      - The sun is a star
+      - Cats are reptiles
+    correct_answer:
+      - 2
+      - 3
+    explanation: Water is wet and the sun is a star
+    point: 4
+
+  - type: 2
+    question: Type the word TEST
+    answer: TEST
+    case_sensitive: true
+    point: 1

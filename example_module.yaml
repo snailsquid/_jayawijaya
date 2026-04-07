@@ -1,0 +1,43 @@
+# This is an example of a module for project _jayawijaya
+
+# The title of the module
+title: Module 0
+
+# Description (optional)
+description: This is an example of a module
+
+questions:
+  # Example of multiple choice
+  - type: 1
+  # Define the type of the question (optional, default=1)
+  # 1 : Multiple choice/Multiple Answer
+  # 2 : Long/Short Text Answer
+    question: What is 1+1? # Required
+    answers: # Required
+    - 2
+    - 4
+    - 6
+    correct_answer: 1 # Required (index start from 1) -> 2 is correct
+    explanation: Because 1+1=2 # Optional
+    point: 1 # (optional, default=1)
+
+  # Other examples
+  # Example of multiple answers
+  - question: Baseball huh?
+    answers: 
+    - That tracks
+    - Huh?
+    - Aljokes
+    correct_answer: [1,2,3] # All correct
+
+  # Example of text answer
+  - type: 2
+    question: What is the chemical compound of water
+    textbox_type: 1 # (optional, default=1)
+    # 1 : Short
+    # 2 : Long
+
+    answer: H2O # Required
+    case_sensitive : True # Optional
+    explanation: Because 2 hydrogen 1 oxygen
+

@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  --color-neu-bg: #f5f5f5;
+  --color-neu-border: #1a1a1a;
+  --color-neu-text: #1a1a1a;
+  --color-neu-accent-1: #ff6b9d;
+  --color-neu-accent-2: #00d4ff;
+  --color-neu-accent-3: #ffd93d;
+  --color-neu-accent-4: #c084fc;
+  --font-neu: system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-neu);
+  background: var(--color-neu-bg);
+  color: var(--color-neu-text);
+}
+
+:root {
+  --neu-border-width: 3px;
+  --neu-shadow: 4px 4px 0px #1a1a1a;
+  --neu-shadow-hover: 2px 2px 0px #1a1a1a;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.neu-box {
+  border: var(--neu-border-width) solid var(--color-neu-border);
+  box-shadow: var(--neu-shadow);
+  background: white;
+}
+
+.neu-box:hover {
+  box-shadow: var(--neu-shadow-hover);
+}
+
+.neu-btn {
+  border: var(--neu-border-width) solid var(--color-neu-border);
+  box-shadow: var(--neu-shadow);
+  background: white;
+  padding: 12px 24px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.neu-btn:hover {
+  box-shadow: var(--neu-shadow-hover);
+  transform: translate(2px, 2px);
+}
+
+.neu-btn:active {
+  box-shadow: none;
+  transform: translate(4px, 4px);
+}
+
+.neu-btn-primary {
+  background: var(--color-neu-accent-1);
+}
+
+.neu-btn-secondary {
+  background: var(--color-neu-accent-2);
+}
+
+.neu-input {
+  border: var(--neu-border-width) solid var(--color-neu-border);
+  padding: 12px 16px;
+  font-size: 16px;
+  outline: none;
+}
+
+.neu-input:focus {
+  box-shadow: var(--neu-shadow);
+}
+
+@media (max-width: 600px) {
+  .quiz-grid-mobile {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
