@@ -311,7 +311,12 @@ export function Start() {
         />
         
         {modules.length === 0 ? (
-          <p style={{ color: '#666' }}>No modules uploaded yet. Upload YAML modules to get started.</p>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: '#666' }}>No modules uploaded yet.</p>
+            <p style={{ color: '#666', fontSize: '14px' }}>
+              See <code style={{ background: '#eee', padding: '2px 6px' }}>example_module.yaml</code> for format reference
+            </p>
+          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {sortedCategories.map(category => {

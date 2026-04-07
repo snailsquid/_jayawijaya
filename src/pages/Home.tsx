@@ -27,6 +27,10 @@ export function Home() {
       >
         _jayawijaya
       </h1>
+      <p style={{ textAlign: 'center', maxWidth: '400px', fontSize: '16px' }}>
+        A modular quiz app with practice/exam modes, multiple choice & text answers, localStorage persistence
+      </p>
+      <p>by <a className=" font-bold underline" href="https://www.linkedin.com/in/arkandhiya-ibrahim-dewantara-576059235/">ark</a>, <a href="https://jambee.games" className=' italic'>Jambee</a> cofounder</p>
       <button
         onClick={() => navigate('/start')}
         className="neu-btn neu-btn-primary"
