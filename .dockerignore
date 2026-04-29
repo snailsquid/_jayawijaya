@@ -8,13 +8,5 @@ dist
 .env.*
 *.md
 !README.md
-test_modules
-example_module.yaml
-documentation.md
-AGENTS.md
-src/**/*.md
-tsconfig*.json
-eslint.config.js
-vite.config.ts
 bun.lock
 bun.lockb
