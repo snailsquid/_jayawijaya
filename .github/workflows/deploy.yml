@@ -46,6 +46,6 @@ jobs:
           port: 22
           script: |
             rm -rf /var/www/html/*
-            cp -r /tmp/jayawijaya_dist/. /var/www/html/
+            cp -r /tmp/jayawijaya_dist/* /var/www/html/
             rm -rf /tmp/jayawijaya_dist
             ls -la /var/www/html/
