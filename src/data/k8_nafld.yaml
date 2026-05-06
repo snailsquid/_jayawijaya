@@ -1,0 +1,56 @@
+# K8 - NAFLD
+
+title: K8 - NAFLD
+
+description: Pertanyaan tentang Non-Alcoholic Fatty Liver Disease dan NASH
+
+questions:
+  - question: NAFLD disertai peradangan dan kerusakan sel (steatohepatitis) disebut...
+    answers:
+      - MAFLD
+      - ASH
+      - NASH
+      - DILI
+      - PBC
+    correct_answer: 3
+    explanation: NASH (Non-alcoholic Steatohepatitis) adalah fase agresif dari perlemakan hati di mana inflamasi berisiko menjadi sirosis.
+
+  - question: "'First Hit' pada patogenesis NASH (Traditional 2-Hit Hypothesis) adalah..."
+    answers:
+      - Stres oksidatif
+      - Penumpukan lemak di hepatosit (steatosis)
+      - Aktivasi sel stelata
+      - Sitokin inflamasi
+      - Badan Mallory
+    correct_answer: 2
+    explanation: Tumpukan asam lemak bebas awal memicu 'first hit' yang membuat sel hati rentan terhadap luka dari stres radikal (second hit).
+
+  - question: Pola kelainan enzim transaminase khas pada NAFLD/NASH adalah...
+    answers:
+      - AST/ALT > 2
+      - AST/ALT < 1
+      - ALT normal, AST >10x
+      - GGT naik tajam
+      - Selalu normal
+    correct_answer: 2
+    explanation: Berbeda dengan hepatitis alkoholik (AST:ALT > 2), rasio AST/ALT pada NAFLD lazimnya < 1 karena ALT yang naik dominan.
+
+  - question: Target utama terapi farmakologis pada NAFLD/NASH diarahkan untuk mengatasi...
+    answers:
+      - Infeksi bakteri
+      - Hipertensi portal
+      - Resistensi insulin dan stres oksidatif
+      - Disfungsi sel beta
+      - Autoimun
+    correct_answer: 3
+    explanation: Obat penunjang diarahkan pada pengontrolan akar metabolisme (resistensi insulin) dan vitamin E untuk meredam stres oksidatif.
+
+  - question: Pilar tata laksana lini pertama bagi pasien NAFLD/NASH adalah...
+    answers:
+      - Kortikosteroid
+      - Transplantasi
+      - Bariatrik
+      - Modifikasi gaya hidup (diet & olahraga)
+      - Insulin
+    correct_answer: 4
+    explanation: Manajemen non-obat (diet kalori restriksi dan olahraga) merupakan esensi pertama yang dapat memperbaiki parameter jaringan hati NASH.

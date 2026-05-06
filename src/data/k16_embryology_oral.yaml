@@ -1,0 +1,56 @@
+# K16 - Embryology & Oral
+
+title: K16 - Embryology & Oral
+
+description: Pertanyaan tentang embryologi dan kelainan mulut
+
+questions:
+  - question: Kegagalan fusi prominensia maksilaris & prominensia nasalis medial memicu...
+    answers:
+      - Palatoskizis
+      - Gnatoskizis
+      - Labioskizis
+      - Mikrognatia
+      - Makrognatia
+    correct_answer: 3
+    explanation: Labioskizis (bibir sumbing) terbentuk jika lengkung bakal bibir atas gagal menyatu embriologis pada minggu ke-6.
+
+  - question: Operasi penutupan celah bibir (labioplasty) idealnya dilakukan umur...
+    answers:
+      - 1 hari
+      - 3 bulan
+      - 10 bulan
+      - 4 tahun
+      - 9 tahun
+    correct_answer: 2
+    explanation: Aturan umum bedah (rule of 10) menetapkan BB 10 lbs, umur 10 minggu (~3 bulan), Hb 10 sebelum anestesi aman dilakukan.
+
+  - question: Kondisi oligohidramnion menekan dagu & lidah memicu kelainan rahang kecil...
+    answers:
+      - Makrognatia
+      - Prognatisme
+      - Mikrognatia
+      - Agnatia
+      - Skizis
+    correct_answer: 3
+    explanation: Kekurangan air ketuban membiarkan dinding rahim menekan pembentukan rahang janin (Mikrognatia).
+
+  - question: Kandidiasis oral paling sering disebabkan spesies...
+    answers:
+      - C. glabrata
+      - C. krusei
+      - Candida albicans
+      - C. tropicalis
+      - C. dubliniensis
+    correct_answer: 3
+    explanation: C. albicans mendominasi 80-90% infeksi oportunistik sariawan jamur pada pasien diabetes, pemakai antibiotik, atau HIV.
+
+  - question: Bentuk kandidiasis oral akibat antibiotik, bercak kemerahan & rasa terbakar adalah...
+    answers:
+      - Pseudomembran
+      - Atrofik Akut
+      - Hiperplastik
+      - Angularis
+      - Denture sore
+    correct_answer: 2
+    explanation: Atrofik Akut tidak memiliki plak tebal keju melainkan papila lidah rontok memerah, sakit perih.

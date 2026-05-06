@@ -1,0 +1,56 @@
+# K5 - Hepatitis
+
+title: K5 - Hepatitis
+
+description: Pertanyaan tentang penyakit hepatitis dan virus hepatitis
+
+questions:
+  - question: Penyakit genetik langka akibat penumpukan tembaga di hati penyebab sirosis adalah...
+    answers:
+      - Hemokromatosis
+      - Penyakit Wilson
+      - AATD
+      - GSD
+      - Cystic Fibrosis
+    correct_answer: 2
+    explanation: Penyakit Wilson disebabkan mutasi genetik yang mengganggu ekskresi tembaga, berujung pada akumulasi di hati dan otak.
+
+  - question: Virus hepatitis yang paling umum ditularkan fekal-oral adalah...
+    answers:
+      - HAV & HEV
+      - HBV & HCV
+      - HDV & HEV
+      - HAV & HCV
+      - HBV & HDV
+    correct_answer: 1
+    explanation: Hepatitis A dan Hepatitis E menular melalui rute pencernaan (air/makanan), sisanya melalui darah atau cairan tubuh.
+
+  - question: Jadwal standar pemberian vaksin Hepatitis B dilakukan pada bulan ke-...
+    answers:
+      - 0, 2, 4
+      - 0, 1, 6
+      - 0, 3, 6
+      - 1, 2, 3
+      - 0, 6, 12
+    correct_answer: 2
+    explanation: Vaksin hepatitis B diberikan 3 kali (bulan ke 0, 1, dan 6) untuk membangun imunitas optimal.
+
+  - question: Hepatitis autoimun terjadi karena...
+    answers:
+      - Keracunan obat
+      - Alkohol
+      - Sistem imun menyerang sel hati sendiri
+      - Virus akut
+      - Bakteri
+    correct_answer: 3
+    explanation: Hepatitis autoimun terjadi saat sel limfosit kehilangan toleransi dan merusak hepatositnya sendiri.
+
+  - question: Penyakit sifilis dapat menyebabkan peradangan hati pada tahap...
+    answers:
+      - Primer
+      - Sekunder
+      - Tersier
+      - Kongenital
+      - Laten
+    correct_answer: 2
+    explanation: Pada sifilis sekunder, Treponema pallidum menyebar secara sistemik dan dapat bermanifestasi menjadi hepatitis luetik.

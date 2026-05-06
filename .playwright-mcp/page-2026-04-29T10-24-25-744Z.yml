@@ -1,0 +1,31 @@
+- generic [ref=e10]:
+  - generic [ref=e11]:
+    - heading "START" [level=1] [ref=e12]
+    - button "← Back" [ref=e13] [cursor=pointer]
+  - generic [ref=e14]:
+    - heading "Mode" [level=2] [ref=e15]
+    - generic [ref=e16]:
+      - button "Practice" [ref=e17] [cursor=pointer]
+      - button "Exam" [ref=e18] [cursor=pointer]
+    - paragraph [ref=e19]: Reveals answer on each submission
+  - generic [ref=e20]:
+    - generic [ref=e21]:
+      - heading "Modules" [level=2] [ref=e22]
+      - button "Upload Modules" [ref=e24] [cursor=pointer]
+    - textbox "Search categories or module names..." [ref=e25]
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Uncategorized" [level=3] [ref=e39]
+        - button "Select All" [ref=e40] [cursor=pointer]
+      - generic [ref=e42] [cursor=pointer]:
+        - checkbox [ref=e43]
+        - generic [ref=e45]:
+          - generic [ref=e46]: Text Answer Questions
+          - generic [ref=e47]: Short and long text input questions with various configurations
+        - button "X" [ref=e48]
+  - generic [ref=e31] [cursor=pointer]:
+    - checkbox "Randomize Questions" [ref=e32]
+    - generic [ref=e33]: Randomize Questions
+  - generic [ref=e34]:
+    - generic [ref=e35]: "Selected: 0 modules, 0 questions"
+    - button "START QUIZ" [disabled] [ref=e36] [cursor=pointer]

@@ -1,0 +1,56 @@
+# K10 - GI Bleeding
+
+title: K10 - GI Bleeding
+
+description: Pertanyaan tentang perdarahan saluran cerna atas dan bawah
+
+questions:
+  - question: Penyebab paling sering perdarahan UGI non-variseal adalah...
+    answers:
+      - Mallory-Weiss
+      - Gastritis
+      - Esophagitis
+      - Peptic ulcer disease
+      - Tumor
+    correct_answer: 4
+    explanation: Tukak peptik (Peptic ulcer disease) berkontribusi atas 30-50% penyebab muntah darah / melena di dunia secara umum.
+
+  - question: Riwayat muntah hebat (alkoholik) disusul perdarahan UGI, diagnosis paling mungkin adalah...
+    answers:
+      - Varises
+      - Mallory-Weiss tear
+      - Dieulafoy
+      - Kanker
+      - Ulkus
+    correct_answer: 2
+    explanation: Sindrom Mallory-Weiss terjadi saat sfingter esofagus bawah robek kecil gara-gara tekanan intragastrik naik drastis saat 'retching'/muntah persisten.
+
+  - question: Langkah pertama tata laksana pasien perdarahan gastrointestinal akut massif adalah...
+    answers:
+      - Endoskopi segera
+      - Antibiotik
+      - Asesmen dan stabilisasi hemodinamik
+      - Vitamin K
+      - Laparotomi
+    correct_answer: 3
+    explanation: "ABC (Airway, Breathing, Circulation) selalu yang paling utama. Jika tensi drop, harus segera diberi cairan infus/darah sebelum endoskopi."
+
+  - question: Pencegahan primer perdarahan varises esofagus pada pasien sirosis dilakukan dengan pemberian...
+    answers:
+      - PPI tinggi
+      - Nonselective beta-blocker
+      - Heparin
+      - Vitamin K
+      - Bypass
+    correct_answer: 2
+    explanation: "Obat penghambat beta non-selektif (ex: Propranolol) menurunkan kardiak output ganda, menurunkan tekanan darah portal ke varises."
+
+  - question: Perdarahan LGI didefinisikan sebagai perdarahan distal dari...
+    answers:
+      - Sfinkter esofagus
+      - Pilorus
+      - Ampulla Vater
+      - Ligamentum Treitz
+      - Ileosekal
+    correct_answer: 4
+    explanation: Ligamentum Treitz adalah pembatas anatomis antara saluran cerna bagian atas (UGI) dan saluran cerna bagian bawah (LGI).

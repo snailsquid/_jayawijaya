@@ -1,0 +1,56 @@
+# K2 - Gut Flora
+
+title: K2 - Gut Flora
+
+description: Pertanyaan tentang flora normal saluran cerna dan bakteri patogen
+
+questions:
+  - question: Bakteri endogen yang berpotensi menjadi patogen dalam kondisi tertentu disebut...
+    answers:
+      - Indigenous
+      - Opportunistic pathogen
+      - Normal flora
+      - Obligate
+      - Commensal
+    correct_answer: 2
+    explanation: Patogen oportunistik adalah mikroba flora normal yang bisa menyebabkan penyakit bila sistem imun inang melemah.
+
+  - question: Flora normal saluran cerna didominasi anaerob dengan jumlah...
+    answers:
+      - 10^5/g
+      - 10^6/g
+      - 10^8/g
+      - 10^9/g
+      - 10^11/g
+    correct_answer: 5
+    explanation: Bakteri anaerob mendominasi usus besar manusia dengan kepadatan mencapai 10^11 sel per gram feses.
+
+  - question: Mekanisme bakteri merusak fungsi sel tanpa merusak sel secara fisik langsung (seperti kolera) adalah melalui produksi...
+    answers:
+      - Endotoksin
+      - Eksotoksin
+      - Invasi
+      - Protease
+      - Bakteriosin
+    correct_answer: 2
+    explanation: Eksotoksin (seperti toksin kolera) mengubah fungsi pompa ion sel epitel tanpa melukai/menginvasi secara fisik, menyebabkan diare air.
+
+  - question: Karakteristik H. pylori yang mendukung kolonisasi mukosa lambung adalah kemampuannya memproduksi...
+    answers:
+      - Spora
+      - Shiga toxin
+      - Enzim urease
+      - Kapsul
+      - Anaerob
+    correct_answer: 3
+    explanation: Urease memecah urea menjadi amonia untuk menetralkan asam lambung, melindungi H. pylori di lambung.
+
+  - question: Diagnosis H. pylori yang non-invasif dan bersensitivitas sangat tinggi adalah...
+    answers:
+      - Biopsi
+      - Gram feses
+      - Urea breath test
+      - Widal
+      - IgM serum
+    correct_answer: 3
+    explanation: Urea Breath Test mendeteksi aktivitas urease bakteri melalui isotop karbon pada nafas (sangat sensitif dan tidak invasif).

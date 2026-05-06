@@ -1,0 +1,56 @@
+# K9 - IBS & GI Disorders
+
+title: K9 - IBS & GI Disorders
+
+description: Pertanyaan tentang Irritable Bowel Syndrome dan gangguan saluran cerna
+
+questions:
+  - question: Disentri basiler (Shigellosis) dianjurkan Diobati dengan antibiotik...
+    answers:
+      - Amoksisilin/Kloramfenikol
+      - Amplisilin, Kotrimoksazol, atau Tetrasiklin
+      - Sefadroksil
+      - Metronidazol
+      - Rifampisin
+    correct_answer: 2
+    explanation: Panduan medis menyebutkan lini pertama untuk membasmi kuman gram negatif Shigella di usus mencakup regimen tersebut.
+
+  - question: Trias komplikasi berat Sindrom Hemolitik Uremik (SHU) akibat EHEC adalah...
+    answers:
+      - Anemia aplastik, Leukopenia, Gagal Hati
+      - Anemia hemolitik, Trombositopenia, Gagal Ginjal Akut
+      - Hipertensi, Gagal Jantung
+      - Perdarahan, Demam, Kejang
+      - Asites, Ikterus, Ensefalopati
+    correct_answer: 2
+    explanation: Toksin EHEC merusak endotel ginjal, menghancurkan eritrosit (hemolitik), dan menurunkan jumlah trombosit.
+
+  - question: Definisi Irritable Bowel Syndrome (IBS) ditandai dengan nyeri perut dan perubahan pola BAB...
+    answers:
+      - Disertai ulkus
+      - Tanpa adanya kelainan organik yang terdeteksi
+      - Dengan CRP tinggi
+      - Akibat genetik laktase
+      - Disertai melena
+    correct_answer: 2
+    explanation: IBS adalah penyakit fungsional, artinya ada kelainan cara kerja usus namun anatominya normal secara struktural.
+
+  - question: Diagnosis IBS ditegakkan berdasarkan kriteria klinis internasional, yaitu...
+    answers:
+      - Framingham
+      - Rome III/IV dan Manning
+      - Duke
+      - Centor
+      - Ranson
+    correct_answer: 2
+    explanation: Sistem Kriteria Rome (saat ini Rome IV) mengatur algoritma standar diagnosis untuk masalah saluran pencernaan fungsional.
+
+  - question: Red Flags (tanda bahaya) saluran cerna bawah yang BUKAN diagnosis IBS murni adalah...
+    answers:
+      - Onset < 30 tahun
+      - Nyeri hilang setelah flatus
+      - Gejala nokturnal dan perdarahan per anus
+      - Cemas
+      - Intoleransi makanan
+    correct_answer: 3
+    explanation: Perdarahan dan gejala yang membangunkan tidur malam sangat khas pada kelainan organik berbahaya (contoh IBD atau Kanker), bukan IBS.

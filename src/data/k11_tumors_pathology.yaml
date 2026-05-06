@@ -1,0 +1,56 @@
+# K11 - Tumors & Pathology
+
+title: K11 - Tumors & Pathology
+
+description: Pertanyaan tentang tumor dan patologi saluran cerna
+
+questions:
+  - question: Keganasan tersering kelenjar air liur dengan campuran sel skuamosa, intermediate, dan musin adalah...
+    answers:
+      - SCC
+      - Adenocarcinoma
+      - Pleomorphic Adenoma
+      - Mucoepidermoid Carcinoma
+      - Warthin Tumor
+    correct_answer: 4
+    explanation: Mucoepidermoid ca mencakup 15% dari neoplasma kelenjar liur, berpotensi tumbuh invasif ke jaringan sekitarnya.
+
+  - question: Kista odontogenik dari degenerasi folikel dental di sekitar mahkota gigi tak erupsi adalah...
+    answers:
+      - Periapical cyst
+      - Keratocyst
+      - Dentigerous cyst
+      - Gingival cyst
+      - Radicular
+    correct_answer: 3
+    explanation: Sangat khas tumbuh membungkus mahkota gigi geraham (M3) yang impaksi dari folikel gigi asli pembungkus kuman gigi.
+
+  - question: Tumor odontogenik jinak deposit enamel dan dentin menyerupai gigi kecil adalah...
+    answers:
+      - Ameloblastoma
+      - Odontoma
+      - Pleomorphic
+      - Mucoepidermoid
+      - Keratocyst
+    correct_answer: 2
+    explanation: Odontoma pada dasarnya adalah hamartoma jinak; pertumbuhannya asimetris tetapi membuat bahan penyusun gigi.
+
+  - question: Penyebab Adenocarcinoma esofagus dilatarbelakangi metaplasia asam lambung disebut...
+    answers:
+      - Achalasia
+      - Plummer-Vinson
+      - Barrett's esophagus
+      - Mallory-Weiss
+      - Varises
+    correct_answer: 3
+    explanation: GERD kronis membakar esofagus hingga sel epitel gepeng memutasi wujud menjadi sel kolumnar usus (Barrett's), pemicu kanker.
+
+  - question: Lesi prekusor makroskopis bercak putih tak bisa dikerok pada mukosa mulut disebut...
+    answers:
+      - Candidiasis
+      - Erythema
+      - Leukoplakia
+      - Aphtous ulcer
+      - Hemangioma
+    correct_answer: 3
+    explanation: Leukoplakia (berbeda dengan jamur putih candidiasis yang bisa dikerok) adalah hiperkeratosis pre-kanker akibat rokok.

@@ -49,12 +49,15 @@ export function useQuiz() {
   ): boolean => {
     if (answer === null) return false;
 
-    if (question.type === 2 || question.answer) {
+    if (question.type === 2 && question.answer) {
       const userAnswer = String(answer).trim();
-      const correctAnswer = question.case_sensitive 
-        ? String(question.answer).trim() 
+      const correctAnswer = question.case_sensitive
+        ? String(question.answer).trim()
         : String(question.answer).trim().toLowerCase();
-      return userAnswer === (question.case_sensitive ? correctAnswer : correctAnswer.toLowerCase());
+      if (!question.case_sensitive) {
+        return userAnswer.toLowerCase() === correctAnswer;
+      }
+      return userAnswer === correctAnswer;
     }
 
     if (Array.isArray(question.correct_answer)) {

@@ -1,0 +1,56 @@
+# K6 - Dyspepsia
+
+title: K6 - Dyspepsia
+
+description: Pertanyaan tentang dispepsia fungsional dan organik
+
+questions:
+  - question: Kriteria ROME IV untuk diagnosis dispepsia fungsional mensyaratkan keluhan lambung yang...
+    answers:
+      - Disertai tukak pada endoskopi
+      - Teraba massa abdomen
+      - TIDAK bisa dijelaskan penyebabnya secara organik
+      - Disertai peningkatan enzim
+      - Terdapat alarm symptom
+    correct_answer: 3
+    explanation: Functional Dyspepsia didefinisikan dengan keluhan perut persisten tanpa ditemukannya kelainan organ saat dites secara mendalam (termasuk endoskopi).
+
+  - question: Alarm symptom pada dispepsia yang mengharuskan endoskopi adalah...
+    answers:
+      - Usia 30th
+      - Sering sendawa
+      - Kembung membaik dengan antasida
+      - Disfagia progresif & berat badan turun
+      - Mual pagi hari
+    correct_answer: 4
+    explanation: Gejala red flags/alarm (sulit menelan, BB turun tanpa sebab, muntah berdarah, anemia) mencurigakan adanya kanker/tukak parah.
+
+  - question: Gold standard evaluasi kelainan organik saluran cerna atas adalah...
+    answers:
+      - Barium meal
+      - USG
+      - Endoskopi UGI
+      - CT Scan
+      - Serologi
+    correct_answer: 3
+    explanation: Endoskopi mampu memvisualisasikan mukosa gaster secara langsung, mengevaluasi luka, dan mengambil sampel biopsi.
+
+  - question: Mekanisme kerja antasida dalam mengatasi keluhan dispepsia adalah...
+    answers:
+      - Menghambat pompa proton
+      - Memblokir reseptor H2
+      - Menetralkan asam lambung yang telah disekresi
+      - Membunuh H. pylori
+      - Prokinetik
+    correct_answer: 3
+    explanation: Antasida adalah agen basa (Mg/Al hidroksida) yang beraksi cepat menetralisir keasaman cairan lumen lambung.
+
+  - question: Inflamasi kronis infeksi H. pylori berujung hilangnya kelenjar lambung normal disebut...
+    answers:
+      - Gastritis hipertrofi
+      - Gastritis atrofi
+      - Ulkus perforasi
+      - Poliposis
+      - Gastropati NSAID
+    correct_answer: 2
+    explanation: Bakteri persisten merusak mukosa lambung dari waktu ke waktu, menyebabkan pengecilan (atrofi) kelenjar produksi asam lambung.

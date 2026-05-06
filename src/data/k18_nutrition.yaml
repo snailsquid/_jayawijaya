@@ -1,0 +1,56 @@
+# K18 - Nutrition
+
+title: K18 - Nutrition
+
+description: Pertanyaan tentang nutrisi dan diet saluran cerna
+
+questions:
+  - question: Refeeding syndrome dipicu oleh...
+    answers:
+      - Alergi formula
+      - Inisiasi agresif makan setelah kelaparan jangka panjang
+      - Infeksi
+      - Stop makan
+      - Defisiensi C
+    correct_answer: 2
+    explanation: Pengembalian carbohydrates tiba-tiba pasca kelaparan memompa insulin sehingga fosfat dan kalium drop fatal untuk sel tubuh.
+
+  - question: Indikator biokimiawi rentan anjlok yang harus diawasi sebelum refeeding...
+    answers:
+      - Bilirubin
+      - Na, Cl, Ca
+      - Kalium, Fosfor, Magnesium
+      - Hb
+      - Kolesterol
+    correct_answer: 3
+    explanation: Ketiga kation ini ditarik masuk instan ke sel demi memproses glikolisis metabolisme makanan baru.
+
+  - question: Diet CDED pada Crohn's bekerja dengan mengurangi paparan trigger seperti...
+    answers:
+      - B kompleks
+      - Emulsifier, maltodekstrin, lemak hewani
+      - Serat larut
+      - Karbo kompleks
+      - Protein nabati
+    correct_answer: 2
+    explanation: Senyawa lemak/pengawet buatan mengikis membran mukus lapisan gaster usus dan memudahkan radang Crohn's.
+
+  - question: Untuk menjaga mikrobiota saat diet Low-FODMAP, dianjurkan co-administrasi...
+    answers:
+      - Antibiotik
+      - Probiotik atau serat larut (PHGG)
+      - Laksatif
+      - Besi
+      - Steroid
+    correct_answer: 2
+    explanation: Gula FODMAP yang dijauhi aslinya makanan probiotik; jika diet diperpanjang wajib disuplementasi balik bakteri baik atau PHGG.
+
+  - question: Gejala NCGS (Sensitivitas Gluten) sering dipicu oleh...
+    answers:
+      - Laktosa
+      - ATIs (Amylase-Trypsin Inhibitors) & FODMAPs
+      - Kasein
+      - Lektin
+      - Asam fitat
+    correct_answer: 2
+    explanation: Pada kondisi intoleransi gandum selain Celiac, yang jahat umumnya ATIs dan ragi fruktan, bukan sekedar molekul protein gluten murni.

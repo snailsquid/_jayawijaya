@@ -1,0 +1,27 @@
+- generic [ref=e57]:
+  - generic [ref=e58]:
+    - button "← Exit" [ref=e59] [cursor=pointer]
+    - generic [ref=e60]: 3 / 5
+  - generic [ref=e61]:
+    - generic [ref=e63]:
+      - generic [ref=e64]:
+        - generic [ref=e65]: Question 3
+        - button "🚩 Flag" [ref=e66] [cursor=pointer]
+        - generic [ref=e67]: 1 point
+      - heading "What is the largest ocean on Earth" [level=2] [ref=e96]
+      - textbox "Type your answer..." [ref=e70]
+    - generic [ref=e72]:
+      - generic [ref=e73]:
+        - button "1" [ref=e74] [cursor=pointer]
+        - button "2" [ref=e75] [cursor=pointer]
+        - button "3" [ref=e76] [cursor=pointer]
+        - button "4" [ref=e77] [cursor=pointer]
+        - button "5" [ref=e78] [cursor=pointer]
+      - generic [ref=e79]:
+        - generic [ref=e82]: unseen
+        - generic [ref=e85]: unanswered
+        - generic [ref=e88]: answered
+        - generic [ref=e91]: flagged
+  - generic [ref=e92]:
+    - button "← Previous" [ref=e93] [cursor=pointer]
+    - button "NEXT →" [active] [ref=e94] [cursor=pointer]

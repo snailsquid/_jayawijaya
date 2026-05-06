@@ -1,0 +1,56 @@
+# K1 - Saliva & Digestion
+
+title: K1 - Saliva & Digestion
+
+description: Pertanyaan tentang enzim saliva dan pencernaan di mulut
+
+questions:
+  - question: Enzim utama yang disekresikan oleh kelenjar saliva dan berfungsi menghidrolisis pati adalah...
+    answers:
+      - Lingual lipase
+      - Pepsin
+      - Salivary alpha-amylase
+      - Trypsin
+      - Rennin
+    correct_answer: 3
+    explanation: Salivary alpha-amylase disekresikan oleh kelenjar liur untuk memecah pati (karbohidrat) menjadi maltosa.
+
+  - question: Salivary alpha-amylase memecah pati dan glikogen menjadi maltosa dengan cara menyerang ikatan glikosidik tipe...
+    answers:
+      - alpha 1->6
+      - beta 1->4
+      - alpha 1->4
+      - beta 1->6
+      - alpha 1->2
+    correct_answer: 3
+    explanation: Enzim ini spesifik menghidrolisis ikatan glikosidik tipe alpha (1->4) pada rantai lurus amilum/glikogen.
+
+  - question: Kelenjar Ebner yang terletak di permukaan dorsal lidah bertanggung jawab untuk mensekresi...
+    answers:
+      - Mucin
+      - Salivary amylase
+      - Gastric lipase
+      - Lingual lipase
+      - Pepsinogen
+    correct_answer: 4
+    explanation: Kelenjar serosa lingual (Ebner's glands) mensekresi lingual lipase untuk memulai pencernaan trigliserida.
+
+  - question: Kondisi pH lambung (gastric juice) yang normal berada pada kisaran...
+    answers:
+      - 6.8
+      - 1.0
+      - 3.0 - 6.0
+      - 7.5 - 8.0
+      - 5.5
+    correct_answer: 2
+    explanation: Cairan lambung (gastric juice) sangat asam dengan pH sekitar 1.0 akibat sekresi asam klorida (HCl) dari sel parietal.
+
+  - question: Sel pada lambung yang merupakan sumber sekresi HCl adalah...
+    answers:
+      - Chief cells
+      - Parietal cells
+      - Goblet cells
+      - Enterochromaffin cells
+      - G cells
+    correct_answer: 2
+    explanation: Sel parietal (parietal cells) memproduksi HCl yang berfungsi mendenaturasi protein dan membunuh bakteri.

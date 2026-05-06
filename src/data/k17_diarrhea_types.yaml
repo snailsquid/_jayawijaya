@@ -1,0 +1,56 @@
+# K17 - Diarrhea Types
+
+title: K17 - Diarrhea Types
+
+description: Pertanyaan tentang tipe diare (sekretori, osmotik, dll)
+
+questions:
+  - question: Diare sekretori dibedakan dari diare osmotik karena...
+    answers:
+      - Memburuk jika puasa
+      - Membaik jika puasa
+      - Tidak dipengaruhi puasa
+      - Tidak membaik meski dipuasakan
+      - Bikin dehidrasi
+    correct_answer: 3
+    explanation: Racun patogen menyalakan kran sel klorida tanpa henti sehingga walau pasien puasa, air terus terbuang aktif.
+
+  - question: Pemeriksaan mikroskopik feses penentu perlu tidaknya kultur bakteri adalah temuan...
+    answers:
+      - Kristal
+      - Leukosit
+      - Sisa makanan
+      - pH >8
+      - Bakteri
+    correct_answer: 2
+    explanation: Lekosit (+ dalam feses) menjustifikasi infeksi inflamasi / radang sehingga sampel butuh dikultur tipe bakteri patogennya.
+
+  - question: Metode Clinitest mengukur gula tak diserap. Gula yang TIDAK terdeteksi adalah...
+    answers:
+      - Laktosa
+      - Fruktosa
+      - Sukrosa
+      - Galaktosa
+      - Maltosa
+    correct_answer: 3
+    explanation: Sukrosa bukan jenis gula pereduksi (reducing sugar), sehingga tak terdeteksi oleh tablet kimia tembaga klorida (Clinitest).
+
+  - question: Warna koloni Shigella pada media XLD Agar adalah...
+    answers:
+      - Merah hitam
+      - Kuning
+      - Merah
+      - Hijau
+      - Putih
+    correct_answer: 3
+    explanation: Salmonella memproduksi hidrogen sulfida berwujud tengah inti hitam merah, sedangkan Shigella berwarna merah polos.
+
+  - question: Virulensi V. cholerae pemicu diare hebat seperti cucian beras adalah...
+    answers:
+      - Invasi
+      - Endotoksin
+      - Sitotoksin
+      - Enterotoksin
+      - Kapsul
+    correct_answer: 4
+    explanation: Cholera toxin merangsang adenilat siklase sel kripta cAMP, mensekresi air drastis (diare sekretori) tanpa peradangan fisik.

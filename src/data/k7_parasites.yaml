@@ -1,0 +1,56 @@
+# K7 - Parasites
+
+title: K7 - Parasites
+
+description: Pertanyaan tentang parasit usus (cacing dan protozoa)
+
+questions:
+  - question: Siklus hidup A. lumbricoides mewajibkan fase migrasi ekstraintestinal ke...
+    answers:
+      - Otot
+      - Hati, jantung, paru-paru
+      - Kandung kemih
+      - Otak
+      - Mata
+    correct_answer: 2
+    explanation: Larva cacing menembus usus dan ikut sirkulasi darah ke paru-paru untuk matang sebelum dibatukkan dan tertelan kembali.
+
+  - question: Gejala batuk dan eosinofilia saat migrasi paru larva Ascaris disebut...
+    answers:
+      - Sindroma Banti
+      - Sindroma Loeffler
+      - GBS
+      - Pneumonia bakterial
+      - Asma ekstrinsik
+    correct_answer: 2
+    explanation: Sindroma Loeffler adalah radang paru (pneumonitis) alergi transien akibat reaksi silang imun terhadap migrasi larva Ascaris.
+
+  - question: Kemampuan E. histolytica menghancurkan sel host ditandai oleh aktivitas...
+    answers:
+      - Toksin shiga
+      - Eritrofagositosis
+      - Pembentukan spora
+      - Sintesis klorofil
+      - Flagel ganda
+    correct_answer: 2
+    explanation: Ameba menelan eritrosit (sel darah merah) untuk nutrisi, sebuah tanda konklusif bahwa strain tersebut invasif/ganas.
+
+  - question: Komplikasi ekstraintestinal paling sering dari infeksi E. histolytica adalah...
+    answers:
+      - Meningoensefalitis
+      - Abses hati amebik
+      - Endokarditis
+      - Glomerulonefritis
+      - Keratitis
+    correct_answer: 2
+    explanation: Trofozoit ameba masuk ke aliran vena porta menuju hati, lisis jaringan hati, membentuk abses nekrotik (amoebic liver abscess).
+
+  - question: Trofozoit Entamoeba coli bersifat...
+    answers:
+      - Sangat ganas
+      - Intraseluler obligat
+      - Non-patogen, gerak lamban, sitoplasma berisi bakteri
+      - Penyebab diare berdarah
+      - Hidup di ileum
+    correct_answer: 3
+    explanation: E. coli adalah flora komensal rongga usus. Ciri khasnya sitoplasmanya menelan kuman (bukan eritrosit).

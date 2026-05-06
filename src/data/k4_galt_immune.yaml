@@ -1,0 +1,56 @@
+# K4 - GALT & Immune
+
+title: K4 - GALT & Immune
+
+description: Pertanyaan tentang Gut-Associated Lymphoid Tissue dan imunitas mukosa
+
+questions:
+  - question: Saluran pencernaan manusia menyimpan proporsi sel imun tubuh sekitar...
+    answers:
+      - 10-20%
+      - 30-40%
+      - 50-60%
+      - 70-80%
+      - 90-100%
+    correct_answer: 4
+    explanation: Gut-Associated Lymphoid Tissue (GALT) adalah organ imun terbesar yang memuat sekitar 70-80% sel imun.
+
+  - question: Mekanisme GALT merespons antigen diet non-bahaya agar tidak terjadi inflamasi disebut...
+    answers:
+      - Autoimunitas
+      - Toleransi oral
+      - Alergi mukosa
+      - Eksklusi
+      - Transitosi
+    correct_answer: 2
+    explanation: Toleransi oral mencegah respons imun destruktif terhadap makanan sehari-hari dan mikroba komensal menguntungkan.
+
+  - question: Sel epitel spesialis pemroduksi AMPs (lisozim, defensin) di kripta usus adalah...
+    answers:
+      - Sel Goblet
+      - Sel Paneth
+      - Sel M
+      - Enterosit
+      - Sel Dendritik
+    correct_answer: 2
+    explanation: Sel Paneth memproduksi peptida antimikroba untuk mensterilkan area kripta tempat stem cell usus berada.
+
+  - question: Proses internalisasi antigen utuh oleh Sel M tanpa degradasi lisosomal disebut...
+    answers:
+      - Fagositosis
+      - Eksositosis
+      - Transitosi
+      - Pinositosis
+      - Apoptosis
+    correct_answer: 3
+    explanation: Sel M mentransportasi antigen asing via transitosi untuk seringkankan ke Makrofag di lamina propria tanpa menghancurkannya.
+
+  - question: Limfosit T yang sangat berperan sebagai efektor imunitas mukosa intestinal adalah...
+    answers:
+      - Th1 dan Th2
+      - Th17 dan sel Treg
+      - CD8+
+      - NK Cells
+      - Sel B
+    correct_answer: 2
+    explanation: Keseimbangan Th17 (inflamasi penangkal jamur/bakteri ekstraseluler) dan Treg (toleransi) krusial di area mukosa usus.

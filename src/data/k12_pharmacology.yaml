@@ -1,0 +1,56 @@
+# K12 - Pharmacology
+
+title: K12 - Pharmacology
+
+description: Pertanyaan tentang farmakologi saluran cerna
+
+questions:
+  - question: PPI bersifat prodrug yang diaktifkan dalam kondisi...
+    answers:
+      - Basa kuat
+      - Netral
+      - Suasana asam
+      - Ada tripsin
+      - Garam empedu
+    correct_answer: 3
+    explanation: PPI secara unik menyerap ke sel parietal dan aktif saat bertemu lingkungan yang sangat asam membentuk sulfonamida ikatan silang.
+
+  - question: Sukralfat mengobati ulkus dengan cara...
+    answers:
+      - Menghambat proton
+      - Membentuk polimer seperti lem di jaringan nekrotik
+      - Meningkatkan pH > 6
+      - Membunuh H. pylori
+      - Prokinetik
+    correct_answer: 2
+    explanation: Agen mukoprotektor sukralfat menempel di protein luka tukak membentuk pasta penghalang asam lambung.
+
+  - question: Kontraindikasi mutlak Misoprostol adalah wanita hamil karena...
+    answers:
+      - Cacat tabung saraf
+      - Hipertensi
+      - Hepatotoksik
+      - Memicu abortus
+      - Hiperemesis
+    correct_answer: 4
+    explanation: Misoprostol adalah analog Prostaglandin. Peningkatan prostaglandin memicu dinding rahim kontraksi masif (mengugurkan janin).
+
+  - question: Laksatif osmotik (hiperosmolar) meliputi obat-obatan berikut...
+    answers:
+      - Sena, bisakodil
+      - PEG 3350, Laktulosa, Sorbitol
+      - Psilium
+      - Minyak jarak
+      - Docusate
+    correct_answer: 2
+    explanation: Laktulosa dkk menarik cairan via osmosis langsung ke lumen usus untuk melunakkan tinja (tdk merangsang peristaltik aktif).
+
+  - question: Laksatif paling aman untuk wanita hamil/laktasi adalah...
+    answers:
+      - Minyak jarak
+      - Bisakodil
+      - MgSO4
+      - Fenolftalein
+      - Laktulosa
+    correct_answer: 5
+    explanation: Laktulosa bersifat inaktif secara sistemik dan tidak mempengaruhi hormon otot polos, sehingga paling aman tanpa memicu ketuban kontraksi.

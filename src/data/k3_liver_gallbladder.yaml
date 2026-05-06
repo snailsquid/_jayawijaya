@@ -1,0 +1,56 @@
+# K3 - Liver & Gallbladder
+
+title: K3 - Liver & Gallbladder
+
+description: Pertanyaan tentang anatomi hati, empedu, dan kolangitis
+
+questions:
+  - question: Struktur penghubung hati dengan dinding abdomen anterior yang memisahkan lobus dekster dan sinister adalah...
+    answers:
+      - Lig. coronarium
+      - Lig. falciforme
+      - Lig. triangulare
+      - Lig. hepatogastricum
+      - Lig. hepatoduodenale
+    correct_answer: 2
+    explanation: Ligamentum falciforme membelah hati menjadi lobus kanan dan kiri dari aspek anterior.
+
+  - question: Vaskularisasi fungsional hati yang membawa nutrisi dari saluran cerna berasal dari...
+    answers:
+      - A. hepatica propria
+      - V. cava inferior
+      - Vena porta hepatik
+      - A. gastroduodenalis
+      - Truncus coeliacus
+    correct_answer: 3
+    explanation: Vena porta mensuplai 75% aliran darah ke hati, kaya nutrisi hasil absorpsi saluran pencernaan.
+
+  - question: Hormon yang disekresi sel-I mukosa usus saat lemak masuk duodenum untuk merangsang kontraksi kantung empedu adalah...
+    answers:
+      - Gastrin
+      - Sekretin
+      - Motilin
+      - Cholecystokinin (CCK)
+      - VIP
+    correct_answer: 4
+    explanation: Kolesistokinin (CCK) merangsang kontraksi otot kandung empedu untuk dirilis cairan empedu agar lemak bisa diemulsi.
+
+  - question: Tiga tanda klinis utama (Charcot's triad) pada kolangitis akut adalah...
+    answers:
+      - "Nyeri kuadran kanan atas, Jaundice, Demam"
+      - Nyeri epigastrium, Mual, Diare
+      - Hipotensi, Jaundice, Penurunan kesadaran
+      - Nyeri perut, Demam, Massa teraba
+      - Pruritus, Feses pucat, Urin gelap
+    correct_answer: 1
+    explanation: Charcot's triad adalah tanda klasik infeksi/obstruksi saluran empedu (Nyeri perut kanan atas, Ikterus, Demam).
+
+  - question: Kantung empedu teraba membesar tak nyeri pada pasien ikterus obstruktif disebut tanda...
+    answers:
+      - Murphy's sign
+      - Courvoisier's sign
+      - McBurney's sign
+      - Rovsing's sign
+      - Blatchford score
+    correct_answer: 2
+    explanation: Hukum Courvoisier menyatakan kandung empedu membesar namun tak nyeri pada ikterus biasanya disebabkan oleh keganasan (contoh: tumor caput pankreas).

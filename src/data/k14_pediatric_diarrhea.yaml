@@ -1,0 +1,56 @@
+# K14 - Pediatric Diarrhea
+
+title: K14 - Pediatric Diarrhea
+
+description: Pertanyaan tentang diare pada anak
+
+questions:
+  - question: Akibat langsung mematikan pada balita diare akut adalah...
+    answers:
+      - Kejang
+      - BB turun
+      - Dehidrasi kehilangan cairan elektrolit
+      - Anoreksia
+      - Batu ginjal
+    correct_answer: 3
+    explanation: Output air/natrium/kalium luar biasa besar pada tinja cair bayi menyebabkan shock hipovolemik dan berujung gagal ginjal.
+
+  - question: Definisi diare (bayi >1bln & anak) adalah defekasi lembek/cair frekuensi minimal...
+    answers:
+      - 1x/24j
+      - 3x/24j
+      - 5x/24j
+      - 7x/24j
+      - 10x/24j
+    correct_answer: 2
+    explanation: WHO menetapkan batasan kuantitatif frekuensi 3x buang air tinja berair dalam waktu 24 jam berturut-turut untuk patokan klinis diare.
+
+  - question: Diare akut berdarah/lendir akibat bakteri invasif disebut...
+    answers:
+      - Persisten
+      - Disentri
+      - Kolera
+      - Intoleransi Laktosa
+      - Osmotik
+    correct_answer: 2
+    explanation: Kuman Shigella/Entamoeba memakan dan merobek mukosa kapiler usus. Manifestasinya menjadi berlendir darah (disentri).
+
+  - question: Struktur limfoid pelindung 'Peyer's Patches' paling banyak di...
+    answers:
+      - Lambung
+      - Duodenum
+      - Jejunum
+      - Ileum
+      - Kolon
+    correct_answer: 4
+    explanation: Peyer's Patches berkumpul besar di terminal Ileum usus halus sebagai pos jaga imunitas GALT sebelum mencapai kolon.
+
+  - question: Intoleransi laktosa memicu diare akibat gangguan pencernaan berupa...
+    answers:
+      - Malabsorpsi karbohidrat
+      - Hipersekresi asam
+      - Kelumpuhan usus
+      - Alergi protein
+      - Invasi virus
+    correct_answer: 1
+    explanation: Kekurangan enzim Laktase menyebabkan gula Laktosa utuh tak terserap. Bakteri pembusuk mengosmotik gula tsb.

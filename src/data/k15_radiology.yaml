@@ -1,0 +1,56 @@
+# K15 - Radiology
+
+title: K15 - Radiology
+
+description: Pertanyaan tentang radiologi saluran cerna
+
+questions:
+  - question: Pneumoperitoneum pada foto polos abdomen ditandai dengan, KECUALI...
+    answers:
+      - Cupola sign
+      - Rigler sign
+      - Foot ball sign
+      - Coffee bean sign
+      - Falciform lig. sign
+    correct_answer: 4
+    explanation: Coffee bean sign (menyerupai biji kopi) adalah tanda khas organ dalam usus (sigmoid) yang melintir (volvulus), bukan bocoran usus.
+
+  - question: Gambaran 'Coffee bean sign' khas pada kasus...
+    answers:
+      - Pneumoperitoneum
+      - Sigmoid Volvulus
+      - Appendicitis
+      - SBO
+      - Intususepsi
+    correct_answer: 2
+    explanation: Kolon sigmoid terputar pada tangkainya hingga tertutup mengembung penuh udara berjejal seperti biji kopi.
+
+  - question: Small Bowel Obstruction (SBO) ditandai dengan gambaran radiologis...
+    answers:
+      - Coffee bean
+      - Coiled spring, herring bone, stepladder sign
+      - Udara masif di rektum
+      - Foot ball
+      - Double wall
+    correct_answer: 2
+    explanation: Plika sirkularis usus halus melebar merenggang bagai pegas, cairan gas terperangkap berlapis (stepladder).
+
+  - question: Pemeriksaan Esofagografi (Barium swallow) diindikasikan untuk...
+    answers:
+      - Melena
+      - Nyeri kuadran kanan bawah
+      - Disfagia, odinofagia, akalasia
+      - Diare
+      - Ikterus
+    correct_answer: 3
+    explanation: Uji ini menilai lumen tabung atas dengan penderita menelan fluorosent Barium. Bagus untuk kasus sulit menelan.
+
+  - question: Gambaran esofagografi penyempitan menyerupai paruh burung (bird beak) khas untuk...
+    answers:
+      - Kanker
+      - Varises
+      - Akalasia
+      - GERD
+      - Divertikulum
+    correct_answer: 3
+    explanation: Sfingter esofagus tak bisa rileks (spasme ujung) sehingga kontras menyempit halus ke titik, bagai paruh burung.

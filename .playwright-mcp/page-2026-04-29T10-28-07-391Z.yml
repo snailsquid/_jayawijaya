@@ -1,0 +1,80 @@
+- generic [ref=e108]:
+  - generic [ref=e109]:
+    - button "←" [ref=e110] [cursor=pointer]
+    - heading "RESULTS" [level=1] [ref=e111]
+    - button "↻" [ref=e112] [cursor=pointer]
+  - generic [ref=e113]:
+    - generic [ref=e114]:
+      - generic [ref=e115]: "Mode: exam"
+      - generic [ref=e116]: 0/5 correct
+    - generic [ref=e117]: 0/8
+    - generic [ref=e118]: 0%
+  - generic [ref=e119]:
+    - heading "All Questions" [level=2] [ref=e120]
+    - generic [ref=e121]:
+      - generic [ref=e122]:
+        - generic [ref=e123]: "Q1: ✗ Incorrect"
+        - generic [ref=e124]: 0/1 pts
+      - heading "What is the chemical formula for water" [level=3] [ref=e125]
+      - generic [ref=e126]:
+        - generic [ref=e127]: "Your answer:"
+        - generic [ref=e128]: No answer
+      - generic [ref=e129]:
+        - generic [ref=e130]: "Correct answer:"
+        - generic [ref=e131]: H2O
+      - generic [ref=e132]:
+        - generic [ref=e133]: "Explanation:"
+        - generic [ref=e134]: Water is composed of 2 hydrogen atoms and 1 oxygen atom
+    - generic [ref=e135]:
+      - generic [ref=e136]:
+        - generic [ref=e137]: "Q2: ✗ Incorrect"
+        - generic [ref=e138]: 0/2 pts
+      - heading "What programming language is this quiz built with" [level=3] [ref=e139]
+      - generic [ref=e140]:
+        - generic [ref=e141]: "Your answer:"
+        - generic [ref=e142]: No answer
+      - generic [ref=e143]:
+        - generic [ref=e144]: "Correct answer:"
+        - generic [ref=e145]: React
+      - generic [ref=e146]:
+        - generic [ref=e147]: "Explanation:"
+        - generic [ref=e148]: The quiz uses React as the frontend framework
+    - generic [ref=e149]:
+      - generic [ref=e150]:
+        - generic [ref=e151]: "Q3: ✗ Incorrect"
+        - generic [ref=e152]: 0/1 pts
+      - heading "What is the largest ocean on Earth" [level=3] [ref=e153]
+      - generic [ref=e154]:
+        - generic [ref=e155]: "Your answer:"
+        - generic [ref=e156]: No answer
+      - generic [ref=e157]:
+        - generic [ref=e158]: "Correct answer:"
+        - generic [ref=e159]: Pacific
+    - generic [ref=e160]:
+      - generic [ref=e161]:
+        - generic [ref=e162]: "Q4: ✗ Incorrect"
+        - generic [ref=e163]: 0/3 pts
+      - heading "Explain why the sky is blue in your own words" [level=3] [ref=e164]
+      - generic [ref=e165]:
+        - generic [ref=e166]: "Your answer:"
+        - generic [ref=e167]: No answer
+      - generic [ref=e168]:
+        - generic [ref=e169]: "Correct answer:"
+        - generic [ref=e170]: Rayleigh scattering
+      - generic [ref=e171]:
+        - generic [ref=e172]: "Explanation:"
+        - generic [ref=e173]: Short wavelength blue light is scattered more by molecules in the atmosphere
+    - generic [ref=e174]:
+      - generic [ref=e175]:
+        - generic [ref=e176]: "Q5: ✗ Incorrect"
+        - generic [ref=e177]: 0/1 pts
+      - heading "What year is it currently" [level=3] [ref=e178]
+      - generic [ref=e179]:
+        - generic [ref=e180]: "Your answer:"
+        - generic [ref=e181]: No answer
+      - generic [ref=e182]:
+        - generic [ref=e183]: "Correct answer:"
+        - generic [ref=e184]: "2026"
+  - generic [ref=e185]:
+    - button "←" [ref=e186] [cursor=pointer]
+    - button "↻" [ref=e187] [cursor=pointer]

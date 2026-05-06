@@ -1,0 +1,56 @@
+# K13 - Surgery
+
+title: K13 - Surgery
+
+description: Pertanyaan tentang bedah saluran cerna
+
+questions:
+  - question: Keuntungan utama kolesistektomi laparoskopik dibandingkan bedah terbuka adalah...
+    answers:
+      - Meniadakan risiko cedera empedu
+      - Tanpa anestesi umum
+      - Invasif minimal, nyeri kurang, pemulihan cepat
+      - Cocok gagal jantung
+      - Mengobati sirosis
+    correct_answer: 3
+    explanation: Tindakan bedah lubang jarum meminimalkan sobekan otot perut, sehingga morbiditas post-op ringan.
+
+  - question: Kontraindikasi absolut kolesistektomi laparoskopik adalah...
+    answers:
+      - Kolesistitis akut
+      - Koagulopati tak terkontrol & end-stage liver disease
+      - Obesitas
+      - Kehamilan
+      - Riwayat operasi
+    correct_answer: 2
+    explanation: Perdarahan masif dari liver akan berakibat fatal jika akses pandang terbatas (koagulopati wajib bedah terbuka/stabilisasi dini).
+
+  - question: Insisi apendektomi terbuka yang paling sering digunakan (kuadran kanan bawah) adalah...
+    answers:
+      - Midline
+      - Kocher
+      - Pfannenstiel
+      - McBurney / Rocky-Davis
+      - Paramedian
+    correct_answer: 4
+    explanation: Potongan miring/transversal tepat di titik apendiks ini membelah serat tanpa memotong otot dominan.
+
+  - question: Metode repair hernia yang tergolong 'Tension Free' adalah...
+    answers:
+      - Bassini
+      - Shouldice
+      - McVay
+      - Lichtenstein
+      - Ferguson
+    correct_answer: 4
+    explanation: Lichtenstein menempatkan Mesh sintetis (jaring penambal lubang) tanpa menarik otot paksa satu sama lain (bebas tensi).
+
+  - question: Teknik hemoroid yang memberikan nyeri pasca operasi paling sedikit adalah...
+    answers:
+      - Open (Milligan-Morgan)
+      - Closed (Ferguson)
+      - Stapler haemorrhoidopexy
+      - Skleroterapi
+      - Rubber band
+    correct_answer: 3
+    explanation: Stapler memotong prolaps di mukosa kolon bagian dalam (kurang reseptor nyeri/syaraf somatik) dibanding insisi luar.

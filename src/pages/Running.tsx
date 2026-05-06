@@ -184,15 +184,20 @@ export function Running() {
   return (
     <div
       style={{
+        display: 'flex',
+        justifyContent: 'center'
+      }}
+    ><div style={{
         minHeight: '100vh',
         padding: '24px',
         paddingBottom: '100px',
         overflowY: 'auto',
-        display: 'flex',
         flexDirection: 'column',
+        display: 'flex',
         gap: '24px',
-      }}
-    >
+        width: '1200px'
+    }}>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button onClick={() => navigate('/start')} className="neu-btn">
           ← Exit
@@ -236,10 +241,13 @@ export function Running() {
         style={{
           display: 'flex',
           justifyContent: 'space-between',
+          alignSelf: 'center',
+          paddingRight: '24px',
+          paddingLeft: '24px',
           position: 'fixed',
           bottom: '24px',
-          left: '24px',
-          right: '24px',
+          width: '100%',
+          maxWidth: '1200px'
         }}
       >
         <button
@@ -286,6 +294,7 @@ export function Running() {
             : 'Continue to next question?'
         }
       />
+    </div>
     </div>
   );
 }
