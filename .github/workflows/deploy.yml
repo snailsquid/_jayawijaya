@@ -27,7 +27,7 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Deploy to Hetzner
+      - name: Upload dist to Hetzner
         uses: appleboy/scp-action@v0.1.2
         with:
           host: ${{ secrets.HETZNER_HOST }}
@@ -37,7 +37,7 @@ jobs:
           target: /tmp/jayawijaya
           source: dist/*
 
-      - name: Fix permissions and move
+      - name: Deploy to Hetzner
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.HETZNER_HOST }}
@@ -46,5 +46,6 @@ jobs:
           port: 22
           script: |
             rm -rf /var/www/html/*
-            mv /tmp/jayawijaya/* /var/www/html/ && rm -rf /tmp/jayawijaya
+            cp -r /tmp/jayawijaya /var/www/html
+            rm -rf /tmp/jayawijaya
             ls -la /var/www/html/
