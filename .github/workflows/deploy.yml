@@ -45,6 +45,7 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           port: 22
           script: |
+            find /tmp/jayawijaya -type f | head -20
             rm -rf /var/www/html/*
             cp -r /tmp/jayawijaya/. /var/www/html/
             rm -rf /tmp/jayawijaya
