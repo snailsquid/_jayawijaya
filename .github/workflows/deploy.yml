@@ -27,15 +27,15 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Upload to Hetzner
+      - name: Upload dist to Hetzner
         uses: appleboy/scp-action@v0.1.2
         with:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           port: 22
-          target: /tmp/jayawijaya
-          source: dist/*
+          target: /tmp/jayawijaya_dist
+          source: dist
 
       - name: Deploy
         uses: appleboy/ssh-action@v1
@@ -44,10 +44,8 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           port: 22
-          capture_stdout: true
           script: |
-            find /tmp -name "jayawijaya" -type d 2>/dev/null
-            ls -la /tmp/jayawijaya/ 2>/dev/null || echo "jayawijaya not found"
             rm -rf /var/www/html/*
-            cp -r /tmp/jayawijaya/. /var/www/html/ 2>&1
+            cp -r /tmp/jayawijaya_dist/. /var/www/html/
+            rm -rf /tmp/jayawijaya_dist
             ls -la /var/www/html/
