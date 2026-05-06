@@ -28,6 +28,18 @@ jobs:
         run: bun run build
 
       - name: Deploy to Hetzner
+        uses: appleboy/scp-action@v0.1.2
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: 22
+          rm: true
+          overwrite: true
+          target: /var/www/html
+          source: dist/*
+
+      - name: Run remote command
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.HETZNER_HOST }}
@@ -35,5 +47,4 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           port: 22
           script: |
-            rm -rf /var/www/html/*
-            cp -r /home/runner/work/_jayawijaya/_jayawijaya/dist /var/www/html/
+            ls -la /var/www/html/
