@@ -34,6 +34,17 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           port: 22
-          rm: true
-          target: /var/www/html
+          target: /tmp/jayawijaya
           source: dist/*
+
+      - name: Fix permissions and move
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: 22
+          script: |
+            rm -rf /var/www/html/*
+            mv /tmp/jayawijaya/* /var/www/html/ && rm -rf /tmp/jayawijaya
+            ls -la /var/www/html/
