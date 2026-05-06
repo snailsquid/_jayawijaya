@@ -35,16 +35,5 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           port: 22
           rm: true
-          overwrite: true
           target: /var/www/html
           source: dist/*
-
-      - name: Run remote command
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.HETZNER_HOST }}
-          username: ${{ secrets.HETZNER_USER }}
-          key: ${{ secrets.HETZNER_SSH_KEY }}
-          port: 22
-          script: |
-            ls -la /var/www/html/
