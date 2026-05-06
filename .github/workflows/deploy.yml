@@ -44,9 +44,9 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           port: 22
-          capture_stdout: true
           script: |
-            find /tmp -maxdepth 2 -name "*jayawijaya*" -o -name "dist" 2>/dev/null | head -10
             rm -rf /var/www/html/*
             cp -r /tmp/jayawijaya_dist /var/www/html/app && mv /var/www/html/app/dist/* /var/www/html/ && rm -rf /var/www/html/app
+            rm -rf /tmp/jayawijaya_dist
+            systemctl reload nginx
             ls -la /var/www/html/
