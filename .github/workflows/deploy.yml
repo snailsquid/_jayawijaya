@@ -75,6 +75,9 @@ jobs:
             sleep 2
             curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
             
+            echo "=== Dumping nginx config ==="
+            nginx -T 2>/dev/null | grep -E "^\s*root\s+" | head -5 || echo "nginx -T failed"
+            
             echo "=== Deployment complete ==="
 
       - name: Purge Cloudflare Cache
