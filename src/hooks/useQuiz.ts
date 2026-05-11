@@ -18,16 +18,139 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
+type DistributionMode = 'equal' | 'proportional';
+
+interface ModuleAllocation {
+  module: Module;
+  allocated: number;
+  originalAllocation: number;
+}
+
+export function calculateAllocation(
+  modules: Module[],
+  limit: number,
+  mode: DistributionMode
+): { moduleId: string; allocated: number; originalAllocation: number }[] {
+  const availableModules = modules.filter((module) => module.questions.length > 0);
+  const totalQuestions = availableModules.reduce(
+    (total, module) => total + module.questions.length,
+    0
+  );
+  const cappedLimit = Math.min(Math.max(Math.floor(limit), 0), totalQuestions);
+
+  if (availableModules.length === 0 || cappedLimit === 0) {
+    return availableModules.map((module) => ({ moduleId: module.id, allocated: 0, originalAllocation: 0 }));
+  }
+
+  const allocations = mode === 'equal'
+    ? calculateEqualAllocation(availableModules, cappedLimit)
+    : calculateProportionalAllocation(availableModules, cappedLimit, totalQuestions);
+
+  fillRemainingAllocation(allocations, cappedLimit);
+
+  return allocations.map(({ module, allocated, originalAllocation }) => ({
+    moduleId: module.id,
+    allocated,
+    originalAllocation,
+  }));
+}
+
+function calculateEqualAllocation(modules: Module[], limit: number): ModuleAllocation[] {
+  const shuffledModules = shuffleArray(modules);
+  const base = Math.floor(limit / shuffledModules.length);
+  const remainder = limit % shuffledModules.length;
+
+  return shuffledModules.map((module, index) => {
+    const originalAlloc = base + (index < remainder ? 1 : 0);
+    return {
+      module,
+      allocated: Math.min(originalAlloc, module.questions.length),
+      originalAllocation: originalAlloc,
+    };
+  });
+}
+
+function calculateProportionalAllocation(
+  modules: Module[],
+  limit: number,
+  totalQuestions: number
+): ModuleAllocation[] {
+  const allocations = modules.map((module) => {
+    const exactAllocation = (limit * module.questions.length) / totalQuestions;
+    const allocated = Math.floor(exactAllocation);
+
+    return {
+      module,
+      allocated,
+      fractional: exactAllocation - allocated,
+      originalAllocation: allocated,
+    };
+  });
+  const remainder = limit - allocations.reduce((total, item) => total + item.allocated, 0);
+
+  [...allocations]
+    .sort((a, b) => b.fractional - a.fractional)
+    .slice(0, remainder)
+    .forEach((item) => {
+      item.allocated = Math.min(item.allocated + 1, item.module.questions.length);
+      item.originalAllocation = item.originalAllocation + 1;
+    });
+
+  return allocations.map(({ module, allocated, originalAllocation }) => ({
+    module,
+    allocated: Math.min(allocated, module.questions.length),
+    originalAllocation,
+  }));
+}
+
+function fillRemainingAllocation(allocations: ModuleAllocation[], limit: number): void {
+  let assigned = allocations.reduce((total, item) => total + item.allocated, 0);
+
+  while (assigned < limit) {
+    let addedThisPass = false;
+
+    for (const allocation of allocations) {
+      if (assigned >= limit) break;
+      if (allocation.allocated >= allocation.module.questions.length) continue;
+
+      allocation.allocated += 1;
+      assigned += 1;
+      addedThisPass = true;
+    }
+
+    if (!addedThisPass) break;
+  }
+}
+
+function sampleQuestionsByAllocation(
+  modules: Module[],
+  allocations: { moduleId: string; allocated: number }[]
+): Question[] {
+  return allocations.flatMap(({ moduleId, allocated }) => {
+    const module = modules.find((item) => item.id === moduleId);
+    if (!module || allocated <= 0) return [];
+
+    return shuffleArray(module.questions).slice(0, allocated);
+  });
+}
+
 export function useQuiz() {
   const initializeQuiz = useCallback((
     modules: Module[],
     mode: QuizMode,
-    randomize: boolean
+    randomize: boolean,
+    questionLimit?: number,
+    distributionMode: DistributionMode = 'equal'
   ): { questions: Question[]; state: QuizState } => {
     let questions = modules.flatMap((m) => m.questions);
     
     if (randomize) {
-      questions = shuffleArray(questions);
+      if (questionLimit === undefined) {
+        questions = shuffleArray(questions);
+      } else {
+        const allocations = calculateAllocation(modules, questionLimit, distributionMode);
+        questions = shuffleArray(sampleQuestionsByAllocation(modules, allocations));
+      }
     }
 
     const state: QuizState = {

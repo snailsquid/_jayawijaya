@@ -42,6 +42,14 @@ export interface QuizState {
 
 export type QuestionState = 'unseen' | 'unanswered' | 'answered' | 'flagged';
 
+export interface QuizConfig {
+  selectedModuleIds: string[];
+  mode: QuizMode;
+  randomize: boolean;
+  questionLimit?: number;
+  distributionMode?: 'equal' | 'proportional';
+}
+
 export interface QuizResult {
   totalScore: number;
   maxScore: number;

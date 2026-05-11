@@ -1,15 +1,10 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import type { Module, QuizMode } from '../types/quiz';
+import { calculateAllocation } from '../hooks/useQuiz';
+import type { Module, QuizConfig } from '../types/quiz';
 import { ModeSelector } from '../components/ModeSelector';
 import { ModuleUploader } from '../components/ModuleUploader';
-
-interface QuizConfig {
-  selectedModuleIds: string[];
-  mode: QuizMode;
-  randomize: boolean;
-}
 
 interface ModuleRowProps {
   module: Module;
@@ -102,6 +97,7 @@ export function Start() {
     selectedModuleIds: [],
     mode: 'practice',
     randomize: false,
+    distributionMode: 'equal',
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -210,6 +206,8 @@ export function Start() {
         modules: selectedModules,
         mode: config.mode,
         randomize: config.randomize,
+        questionLimit: config.randomize ? config.questionLimit : undefined,
+        distributionMode: config.randomize ? config.distributionMode : undefined,
       },
     });
   };
@@ -217,6 +215,30 @@ export function Start() {
   const totalQuestions = modules
     .filter(m => config.selectedModuleIds.includes(m.id))
     .reduce((sum, m) => sum + m.questions.length, 0);
+
+  const selectedModules = useMemo(
+    () => modules.filter(m => config.selectedModuleIds.includes(m.id)),
+    [modules, config.selectedModuleIds]
+  );
+
+  const allocation = useMemo(() => {
+    if (!config.randomize) return null;
+    const limit = config.questionLimit ?? totalQuestions;
+    if (limit >= totalQuestions) return null;
+    return calculateAllocation(selectedModules, limit, config.distributionMode ?? 'equal');
+  }, [config.randomize, config.questionLimit, config.distributionMode, selectedModules, totalQuestions]);
+
+  useEffect(() => {
+    setConfig(prev => {
+      if (!prev.randomize || totalQuestions <= 0) return prev;
+      if (prev.questionLimit === undefined || prev.questionLimit === 0) {
+        return { ...prev, questionLimit: totalQuestions };
+      }
+      const clamped = Math.min(prev.questionLimit, totalQuestions);
+      if (clamped === prev.questionLimit) return prev;
+      return { ...prev, questionLimit: clamped };
+    });
+  }, [totalQuestions, setConfig]);
 
   const hasSelection = config.selectedModuleIds.length > 0;
 
@@ -256,14 +278,23 @@ export function Start() {
               {config.selectedModuleIds.length} selected:
             </span>
             <div style={{ display: 'flex', gap: '8px', flex: '1 1 200px', minWidth: '150px' }}>
-              <input
-                type="text"
-                list="category-options"
-                value={assignCategory}
-                onChange={e => setAssignCategory(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleMassAssign();
-                }}
+                <input
+                  type="number"
+                  min={1}
+                  max={Math.max(totalQuestions, 1)}
+                  value={config.questionLimit ?? totalQuestions}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setConfig(prev => ({ ...prev, questionLimit: undefined }));
+                      return;
+                    }
+                    const parsed = parseInt(raw, 10);
+                    if (isNaN(parsed)) return;
+                    const maxLimit = Math.max(totalQuestions, 1);
+                    const clamped = Math.min(Math.max(parsed, 1), maxLimit);
+                    setConfig(prev => ({ ...prev, questionLimit: clamped }));
+                  }}
                 placeholder="Type to search or create..."
                 className="neu-input"
                 style={{ flex: '1' }}
@@ -403,11 +434,137 @@ export function Start() {
           <input
             type="checkbox"
             checked={config.randomize}
-            onChange={e => setConfig(prev => ({ ...prev, randomize: e.target.checked }))}
+            onChange={e => {
+              const checked = e.target.checked;
+              setConfig(prev => ({
+                ...prev,
+                randomize: checked,
+                questionLimit: checked ? (prev.questionLimit ?? totalQuestions) : prev.questionLimit,
+              }));
+            }}
             style={{ width: '24px', height: '24px' }}
           />
           <span style={{ fontWeight: 700, fontSize: '18px' }}>Randomize Questions</span>
         </label>
+        {config.randomize && (
+          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label style={{ fontWeight: 700, fontSize: '16px', display: 'block', marginBottom: '8px' }}>
+                Question Limit
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="number"
+                  min={1}
+                  max={Math.max(totalQuestions, 1)}
+                  value={config.questionLimit ?? totalQuestions}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/\D/g, '');
+                    if (raw === '') return;
+                    const parsed = parseInt(raw, 10);
+                    if (isNaN(parsed)) return;
+                    const maxLimit = Math.max(totalQuestions, 1);
+                    const clamped = Math.min(Math.max(parsed, 1), maxLimit);
+                    setConfig(prev => ({ ...prev, questionLimit: clamped }));
+                  }}
+                  className="neu-input"
+                  style={{ width: '100px', textAlign: 'center' }}
+                />
+                <span style={{ fontSize: '14px', color: '#666' }}>
+                  / {totalQuestions}
+                </span>
+              </div>
+            </div>
+            <div>
+              <label style={{ fontWeight: 700, fontSize: '16px', display: 'block', marginBottom: '8px' }}>
+                Balance Mode
+              </label>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={() => setConfig(prev => ({ ...prev, distributionMode: 'equal' }))}
+                  className="neu-btn"
+                  style={{
+                    flex: 1,
+                    background: (config.distributionMode ?? 'equal') === 'equal' ? '#00d4ff' : 'white',
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                  }}
+                >
+                  Equal
+                </button>
+                <button
+                  onClick={() => setConfig(prev => ({ ...prev, distributionMode: 'proportional' }))}
+                  className="neu-btn"
+                  style={{
+                    flex: 1,
+                    background: config.distributionMode === 'proportional' ? '#00d4ff' : 'white',
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                  }}
+                >
+                  Proportional
+                </button>
+              </div>
+            </div>
+            {(config.questionLimit ?? totalQuestions) >= totalQuestions ? (
+              <div style={{
+                padding: '12px',
+                border: '3px solid #000',
+                boxShadow: '3px 3px 0px #1a1a1a',
+                background: '#e8f8ff',
+                fontWeight: 700,
+              }}>
+                All questions selected
+              </div>
+            ) : allocation ? (
+              <div style={{
+                padding: '12px',
+                border: '3px solid #000',
+                boxShadow: '3px 3px 0px #1a1a1a',
+                background: '#fff',
+              }}>
+                <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '8px' }}>
+                  Question Distribution
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {allocation.map(({ moduleId, allocated, originalAllocation }) => {
+                    const mod = selectedModules.find(m => m.id === moduleId);
+                    if (!mod) return null;
+                    const isCapped = allocated === mod.questions.length &&
+                      mod.questions.length < Math.ceil((config.questionLimit ?? totalQuestions) / selectedModules.length);
+                    return (
+                      <div key={moduleId} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        padding: '4px 0',
+                        borderBottom: '1px solid #eee',
+                      }}>
+                        <span style={{ fontWeight: 600 }}>{mod.title}</span>
+                        <span>
+                          {allocated} question{allocated !== 1 ? 's' : ''}
+                          {isCapped && (
+                            <span style={{ color: '#ff9f43', fontWeight: 700, marginLeft: '4px' }}>(capped from {originalAllocation})</span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontWeight: 700,
+                  marginTop: '8px',
+                  paddingTop: '8px',
+                  borderTop: '2px solid #000',
+                }}>
+                  <span>Total</span>
+                  <span>{allocation.reduce((sum, a) => sum + a.allocated, 0)} questions</span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

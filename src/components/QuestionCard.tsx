@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import type { Question, QuestionState } from '../types/quiz';
 
 interface QuestionCardProps {
@@ -67,30 +66,12 @@ export function QuestionCard({
   onSubmit,
   onToggleFlag,
 }: QuestionCardProps) {
-  const [textInput, setTextInput] = useState('');
-  const [selectedAnswer, setSelectedAnswer] = useState<number | number[] | string | null>(null);
   const useTextbox = question.type === 2 || question.answer;
-
-  useEffect(() => {
-    if (userAnswer !== null) {
-      if (!useTextbox) {
-        setSelectedAnswer(userAnswer);
-      } else {
-        setTextInput(typeof userAnswer === 'string' ? userAnswer : '');
-      }
-    }
-  }, [userAnswer, useTextbox]);
-
-  useEffect(() => {
-    if (userAnswer === null) {
-      setSelectedAnswer(null);
-      setTextInput('');
-    }
-  }, [questionIndex, userAnswer]);
+  const textInput = typeof userAnswer === 'string' ? userAnswer : '';
 
   const hasUserAnswer = useTextbox
     ? textInput.trim().length > 0
-    : selectedAnswer !== null;
+    : userAnswer !== null;
 
   const isCorrect = submitted && checkIsCorrect(question, userAnswer);
   const correctAnswerText = getCorrectAnswerText(question);
@@ -101,7 +82,7 @@ export function QuestionCard({
     const isMultipleCorrect = Array.isArray(question.correct_answer);
 
     if (isMultipleCorrect) {
-      const current = Array.isArray(selectedAnswer) ? selectedAnswer : null;
+      const current = Array.isArray(userAnswer) ? userAnswer : null;
       const newAnswer = current ? [...current] : [];
       const idx = newAnswer.indexOf(optionIndex);
       if (idx > -1) {
@@ -110,11 +91,9 @@ export function QuestionCard({
         newAnswer.push(optionIndex);
       }
       const finalAnswer = newAnswer.length === 0 ? null : newAnswer;
-      setSelectedAnswer(finalAnswer);
       onAnswer(finalAnswer);
     } else {
-      const newAnswer = selectedAnswer === optionIndex ? null : optionIndex;
-      setSelectedAnswer(newAnswer);
+      const newAnswer = userAnswer === optionIndex ? null : optionIndex;
       onAnswer(newAnswer);
     }
   };
@@ -129,7 +108,6 @@ export function QuestionCard({
             <textarea
               value={textInput}
               onChange={(e) => {
-                setTextInput(e.target.value);
                 onAnswer(e.target.value);
               }}
               onKeyDown={(e) => {
@@ -168,7 +146,6 @@ export function QuestionCard({
             type="text"
             value={textInput}
             onChange={(e) => {
-              setTextInput(e.target.value);
               onAnswer(e.target.value);
             }}
             onKeyDown={(e) => {
@@ -196,13 +173,13 @@ export function QuestionCard({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {question.answers.map((answer, index) => {
           const optionIndex = index + 1;
-          const isSelected = Array.isArray(selectedAnswer)
-            ? selectedAnswer.includes(optionIndex)
-            : selectedAnswer === optionIndex;
+          const isSelected = Array.isArray(userAnswer)
+            ? userAnswer.includes(optionIndex)
+            : userAnswer === optionIndex;
           const isCorrectOption = correctAnswers.includes(optionIndex);
 
           let bgColor = 'white';
-          let borderStyle = '3px solid #1a1a1a';
+          const borderStyle = '3px solid #1a1a1a';
 
           if (submitted) {
             if (isCorrectOption && isSelected) {

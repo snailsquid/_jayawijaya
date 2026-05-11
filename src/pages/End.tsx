@@ -8,6 +8,8 @@ interface EndState {
   answers: (number | number[] | string | null)[];
   modules?: Module[];
   randomize?: boolean;
+  questionLimit?: number;
+  distributionMode?: 'equal' | 'proportional';
 }
 
 function getUserAnswerText(question: Question, userAnswer: number | number[] | string | null): string {
@@ -71,8 +73,11 @@ export function End() {
       navigate('/start');
       return;
     }
-    const randomize = (location.state as EndState)?.randomize ?? false;
-    navigate('/running', { state: { modules, mode, randomize } });
+    const endState = location.state as EndState;
+    const randomize = endState?.randomize ?? false;
+    const questionLimit = endState?.questionLimit;
+    const distributionMode = endState?.distributionMode;
+    navigate('/running', { state: { modules, mode, randomize, questionLimit, distributionMode } });
   };
 
   return (

@@ -9,6 +9,8 @@ interface RunningState {
   modules: Module[];
   mode: QuizMode;
   randomize: boolean;
+  questionLimit?: number;
+  distributionMode?: 'equal' | 'proportional';
 }
 
 function ConfirmPopup({
@@ -76,7 +78,9 @@ export function Running() {
     const { questions, state } = initializeQuiz(
       initialState.modules,
       initialState.mode,
-      initialState.randomize
+      initialState.randomize,
+      initialState.questionLimit,
+      initialState.distributionMode
     );
     return { questions, state };
   });
@@ -164,7 +168,9 @@ export function Running() {
     const results = calculateResults(questions, state.answers);
     const selectedModules = initialState?.modules || [];
     const randomize = initialState?.randomize ?? false;
-    navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, randomize } });
+    const questionLimit = initialState?.questionLimit;
+    const distributionMode = initialState?.distributionMode;
+    navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, randomize, questionLimit, distributionMode } });
   }, [calculateResults, questions, state.answers, navigate, mode, initialState]);
 
   if (!currentQuestion) {
