@@ -49,38 +49,32 @@ jobs:
             echo "=== Listing /tmp/jayawijaya_dist structure ==="
             ls -laR /tmp/jayawijaya_dist/ || true
             
-            echo "=== Finding nginx document root ==="
-            NGINX_ROOT=$(grep -rE "root\s+" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ /etc/nginx/nginx.conf 2>/dev/null | grep -v "^#" | grep -v "root\s*;" | head -1 | awk '{print $2}' | sed 's/;//g')
-            if [ -z "$NGINX_ROOT" ]; then
-              NGINX_ROOT="/var/www/html"
-            fi
-            echo "Nginx document root: $NGINX_ROOT"
-            
-            echo "=== Clearing document root ==="
-            rm -rf "${NGINX_ROOT:?}"/*
+            echo "=== Clearing /var/www/html ==="
+            rm -rf /var/www/html/*
             
             echo "=== Copying files ==="
             if [ -d "/tmp/jayawijaya_dist/dist" ]; then
               echo "Found dist subdirectory, copying from dist/"
-              cp -r /tmp/jayawijaya_dist/dist/* "$NGINX_ROOT/"
+              cp -r /tmp/jayawijaya_dist/dist/* /var/www/html/
             else
               echo "No dist subdirectory, copying from root"
-              cp -r /tmp/jayawijaya_dist/* "$NGINX_ROOT/"
+              cp -r /tmp/jayawijaya_dist/* /var/www/html/
             fi
             
             echo "=== Cleaning up ==="
             rm -rf /tmp/jayawijaya_dist
             
-            echo "=== Verifying deployment ==="
-            ls -laR "$NGINX_ROOT/"
-            echo "=== Checking index.html content ==="
-            head -n 10 "$NGINX_ROOT/index.html"
-            
-            echo "=== Testing localhost ==="
-            curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
+            echo "=== Verifying files ==="
+            ls -laR /var/www/html/
+            head -n 10 /var/www/html/index.html
             
             echo "=== Reloading nginx ==="
             systemctl reload nginx
+            
+            echo "=== Testing localhost ==="
+            sleep 2
+            curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
+            
             echo "=== Deployment complete ==="
 
       - name: Purge Cloudflare Cache
