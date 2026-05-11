@@ -50,7 +50,7 @@ jobs:
             ls -laR /tmp/jayawijaya_dist/ || true
             
             echo "=== Finding nginx document root ==="
-            NGINX_ROOT=$(grep -rE "^\s*root\s+" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ /etc/nginx/nginx.conf 2>/dev/null | grep -v "^#" | head -1 | awk '{print $2}' | sed 's/;//g')
+            NGINX_ROOT=$(grep -rE "root\s+" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ /etc/nginx/nginx.conf 2>/dev/null | grep -v "^#" | grep -v "root\s*;" | head -1 | awk '{print $2}' | sed 's/;//g')
             if [ -z "$NGINX_ROOT" ]; then
               NGINX_ROOT="/var/www/html"
             fi
@@ -75,6 +75,9 @@ jobs:
             ls -laR "$NGINX_ROOT/"
             echo "=== Checking index.html content ==="
             head -n 10 "$NGINX_ROOT/index.html"
+            
+            echo "=== Testing localhost ==="
+            curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
             
             echo "=== Reloading nginx ==="
             systemctl reload nginx
