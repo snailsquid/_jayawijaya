@@ -75,8 +75,19 @@ jobs:
             sleep 2
             curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
             
-            echo "=== Dumping nginx config ==="
-            nginx -T 2>/dev/null | grep -E "^\s*root\s+" | head -5 || echo "nginx -T failed"
+            echo "=== Finding actual document root ==="
+            LOCALHASH=$(curl -s http://localhost/ | grep -o 'src="/assets/index-[^"]*\.js"' | sed 's/.*index-//;s/\.js"//')
+            echo "Localhost serves JS hash: $LOCALHASH"
+            if [ -n "$LOCALHASH" ]; then
+              FOUND=$(find /var/www /usr/share/nginx /home -name "index-${LOCALHASH}.js" 2>/dev/null | head -1)
+              if [ -n "$FOUND" ]; then
+                ACTUAL_ROOT=$(dirname $(dirname "$FOUND"))
+                echo "Found served file at: $FOUND"
+                echo "Actual document root: $ACTUAL_ROOT"
+              else
+                echo "Could not find served file on filesystem"
+              fi
+            fi
             
             echo "=== Deployment complete ==="
 
