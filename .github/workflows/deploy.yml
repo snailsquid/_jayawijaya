@@ -75,6 +75,9 @@ jobs:
             sleep 2
             curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
             
+            echo "=== Listing /tmp/jayawijaya_dist ==="
+            ls -laR /tmp/jayawijaya_dist/ || true
+            
             echo "=== Deploying to jayawijaya container ==="
             if [ -d "/tmp/jayawijaya_dist/dist" ]; then
               docker cp /tmp/jayawijaya_dist/dist/. jayawijaya:/usr/share/nginx/html/
