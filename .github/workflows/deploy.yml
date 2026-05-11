@@ -75,9 +75,20 @@ jobs:
             sleep 2
             curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
             
-            echo "=== Inspecting jayawijaya container ==="
-            docker inspect jayawijaya --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}' 2>/dev/null || echo "No mounts"
-            docker inspect jayawijaya --format '{{.Config.Image}}' 2>/dev/null || echo "No image info"
+            echo "=== Deploying to jayawijaya container ==="
+            if [ -d "/tmp/jayawijaya_dist/dist" ]; then
+              docker cp /tmp/jayawijaya_dist/dist/. jayawijaya:/usr/share/nginx/html/
+            else
+              docker cp /tmp/jayawijaya_dist/. jayawijaya:/usr/share/nginx/html/
+            fi
+            docker exec jayawijaya nginx -s reload 2>/dev/null || docker restart jayawijaya
+            
+            echo "=== Verifying container deployment ==="
+            docker exec jayawijaya ls -la /usr/share/nginx/html/ || echo "Container check failed"
+            docker exec jayawijaya head -n 10 /usr/share/nginx/html/index.html || echo "Container index check failed"
+            
+            echo "=== Cleaning up ==="
+            rm -rf /tmp/jayawijaya_dist
             
             echo "=== Deployment complete ==="
 
