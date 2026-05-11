@@ -75,23 +75,13 @@ jobs:
             sleep 2
             curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
             
-            echo "=== Checking Coolify applications ==="
-            ls -laR /data/coolify/applications/ 2>/dev/null | head -30 || echo "No applications"
-            ls -laR /data/coolify/proxy/ 2>/dev/null | head -20 || echo "No proxy"
+            echo "=== Checking Docker volumes ==="
+            docker volume ls -q 2>/dev/null | while read vol; do
+              docker run --rm -v "$vol:/vol" alpine find /vol -name "index-*.js" 2>/dev/null | head -3
+            done || echo "Volume search failed"
             
-            echo "=== Finding actual document root ==="
-            LOCALHASH=$(curl -s http://localhost/ | grep -o 'src="/assets/index-[^"]*\.js"' | sed 's/.*index-//;s/\.js"//')
-            echo "Localhost serves JS hash: $LOCALHASH"
-            if [ -n "$LOCALHASH" ]; then
-              FOUND=$(find /data/coolify /var /usr /home -name "index-${LOCALHASH}.js" 2>/dev/null | head -1)
-              if [ -n "$FOUND" ]; then
-                ACTUAL_ROOT=$(dirname $(dirname "$FOUND"))
-                echo "Found served file at: $FOUND"
-                echo "Actual document root: $ACTUAL_ROOT"
-              else
-                echo "Could not find served file on filesystem"
-              fi
-            fi
+            echo "=== Checking all running containers ==="
+            docker ps --format "table {{.Names}}\t{{.Ports}}" 2>/dev/null || echo "No docker"
             
             echo "=== Deployment complete ==="
 
