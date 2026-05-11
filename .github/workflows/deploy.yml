@@ -75,11 +75,15 @@ jobs:
             sleep 2
             curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
             
+            echo "=== Checking for Docker/proxy ==="
+            docker ps 2>/dev/null || echo "Docker not available"
+            ss -tlnp 2>/dev/null | grep -E ":80|:443" || netstat -tlnp 2>/dev/null | grep -E ":80|:443" || echo "No port info"
+            
             echo "=== Finding actual document root ==="
             LOCALHASH=$(curl -s http://localhost/ | grep -o 'src="/assets/index-[^"]*\.js"' | sed 's/.*index-//;s/\.js"//')
             echo "Localhost serves JS hash: $LOCALHASH"
             if [ -n "$LOCALHASH" ]; then
-              FOUND=$(find /var/www /usr/share/nginx /home -name "index-${LOCALHASH}.js" 2>/dev/null | head -1)
+              FOUND=$(find / /var /usr /home -name "index-${LOCALHASH}.js" 2>/dev/null | head -1)
               if [ -n "$FOUND" ]; then
                 ACTUAL_ROOT=$(dirname $(dirname "$FOUND"))
                 echo "Found served file at: $FOUND"
