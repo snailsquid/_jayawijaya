@@ -75,16 +75,15 @@ jobs:
             sleep 2
             curl -s http://localhost/ | grep -o 'src="[^"]*"' || echo "localhost check failed"
             
-            echo "=== Checking for Coolify directories ==="
-            ls -la /data/coolify/ 2>/dev/null || echo "No /data/coolify"
-            ls -la /opt/coolify/ 2>/dev/null || echo "No /opt/coolify"
-            docker volume ls 2>/dev/null | grep -i jaya || echo "No jayawijaya volumes"
+            echo "=== Checking Coolify applications ==="
+            ls -laR /data/coolify/applications/ 2>/dev/null | head -30 || echo "No applications"
+            ls -laR /data/coolify/proxy/ 2>/dev/null | head -20 || echo "No proxy"
             
             echo "=== Finding actual document root ==="
             LOCALHASH=$(curl -s http://localhost/ | grep -o 'src="/assets/index-[^"]*\.js"' | sed 's/.*index-//;s/\.js"//')
             echo "Localhost serves JS hash: $LOCALHASH"
             if [ -n "$LOCALHASH" ]; then
-              FOUND=$(find /data /opt /var /usr /home -name "index-${LOCALHASH}.js" 2>/dev/null | head -1)
+              FOUND=$(find /data/coolify /var /usr /home -name "index-${LOCALHASH}.js" 2>/dev/null | head -1)
               if [ -n "$FOUND" ]; then
                 ACTUAL_ROOT=$(dirname $(dirname "$FOUND"))
                 echo "Found served file at: $FOUND"
