@@ -11,7 +11,7 @@ export function Home() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '32px',
+        gap: '24px',
         padding: '24px',
       }}
     >
@@ -31,16 +31,22 @@ export function Home() {
         A modular quiz app with practice/exam modes, multiple choice & text answers, localStorage persistence
       </p>
       <p>by <a className=" font-bold underline" href="https://www.linkedin.com/in/arkandhiya-ibrahim-dewantara-576059235/">ark</a>, <a href="https://jambee.games" className=' italic'>Jambee</a> cofounder</p>
-      <button
-        onClick={() => navigate('/start')}
-        className="neu-btn neu-btn-primary"
-        style={{
-          fontSize: '24px',
-          padding: '24px 48px',
-        }}
-      >
-        START
-      </button>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch', justifyContent: 'center', flexDirection: "column" }}>
+        <button
+          onClick={() => navigate('/start')}
+          className="neu-btn neu-btn-primary"
+          style={{ fontSize: '24px', padding: '16px 48px'}}
+        >
+          START
+        </button>
+        <button
+          onClick={() => navigate('/how-to-create-modules')}
+          className="neu-btn neu-btn-secondary"
+          style={{ fontSize: '14px', padding: '10px 30px', width:'100%', alignSelf: 'center', maxWidth: '200px', textAlign: 'center', lineHeight: 1.2 }}
+        >
+          How to create<br />modules?
+        </button>
+      </div>
     </div>
   );
 }

@@ -345,7 +345,7 @@ export function Start() {
           <div style={{ textAlign: 'center' }}>
             <p style={{ color: '#666' }}>No modules uploaded yet.</p>
             <p style={{ color: '#666', fontSize: '14px' }}>
-              See <code style={{ background: '#eee', padding: '2px 6px' }}>example_module.yaml</code> for format reference
+              See <span onClick={()=>navigate('/how-to-create-modules')} style={{ textDecoration: 'underline', fontWeight:'bold', cursor:'pointer'}}>How To Guide</span> for creating modules
             </p>
           </div>
         ) : (
@@ -567,8 +567,8 @@ export function Start() {
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: '18px', fontWeight: 700 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ fontSize: '18px', fontWeight: 700, flex: '1 1 200px', minWidth: 0 }}>
           Selected: {config.selectedModuleIds.length} modules, {totalQuestions} questions
         </div>
         <button
@@ -579,6 +579,7 @@ export function Start() {
             fontSize: '20px',
             padding: '16px 32px',
             opacity: config.selectedModuleIds.length === 0 ? 0.5 : 1,
+            flexShrink: 0,
           }}
         >
           START QUIZ
