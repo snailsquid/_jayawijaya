@@ -55,7 +55,7 @@ export function HowToModules() {
           LLM prompt
         </h2>
         <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.5 }}>
-          Copy and paste into an LLM.
+          Copy and paste into an LLM. Or copy raw prompt from <a href={'https://raw.githubusercontent.com/snailsquid/_jayawijaya/master/LLM_TUTORIAL.md'} target='_blank' style={{fontWeight:'bold', textDecoration:'underline'}}>here</a>.
         </p>
         <textarea
           readOnly
