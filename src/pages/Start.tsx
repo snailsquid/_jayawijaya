@@ -206,23 +206,14 @@ export function Start() {
               {config.selectedModuleIds.length} selected:
             </span>
             <div style={{ display: 'flex', gap: '8px', flex: '1 1 200px', minWidth: '150px' }}>
-                <input
-                  type="number"
-                  min={1}
-                  max={Math.max(totalQuestions, 1)}
-                  value={config.questionLimit ?? totalQuestions}
-                  onChange={e => {
-                    const raw = e.target.value;
-                    if (raw === '') {
-                      setConfig(prev => ({ ...prev, questionLimit: undefined }));
-                      return;
-                    }
-                    const parsed = parseInt(raw, 10);
-                    if (isNaN(parsed)) return;
-                    const maxLimit = Math.max(totalQuestions, 1);
-                    const clamped = Math.min(Math.max(parsed, 1), maxLimit);
-                    setConfig(prev => ({ ...prev, questionLimit: clamped }));
-                  }}
+              <input
+                type="text"
+                list="category-options"
+                value={assignCategory}
+                onChange={e => setAssignCategory(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleMassAssign();
+                }}
                 placeholder="Type to search or create..."
                 className="neu-input"
                 style={{ flex: '1' }}
