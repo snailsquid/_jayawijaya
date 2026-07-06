@@ -48,6 +48,10 @@ export interface QuizConfig {
   randomize: boolean;
   questionLimit?: number;
   distributionMode?: 'equal' | 'proportional';
+  timerEnabled: boolean;
+  timerHours: number;
+  timerMinutes: number;
+  timerSeconds: number;
 }
 
 export interface QuizResult {

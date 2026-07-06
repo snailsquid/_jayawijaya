@@ -5,90 +5,7 @@ import { calculateAllocation } from '../hooks/useQuiz';
 import type { Module, QuizConfig } from '../types/quiz';
 import { ModeSelector } from '../components/ModeSelector';
 import { ModuleUploader } from '../components/ModuleUploader';
-
-interface ModuleRowProps {
-  module: Module;
-  isSelected: boolean;
-  isExpanded: boolean;
-  onToggleSelect: () => void;
-  onToggleExpand: () => void;
-  onDelete: () => void;
-}
-
-function ModuleRow({
-  module,
-  isSelected,
-  isExpanded,
-  onToggleSelect,
-  onToggleExpand,
-  onDelete,
-}: ModuleRowProps) {
-  return (
-    <div
-      onClick={onToggleSelect}
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '12px',
-        padding: '12px',
-        border: '2px solid #1a1a1a',
-        background: isSelected ? '#00d4ff' : 'white',
-        cursor: 'pointer',
-        userSelect: 'none',
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={isSelected}
-        onChange={onToggleSelect}
-        onClick={(e) => e.stopPropagation()}
-        style={{ width: '20px', height: '20px', marginTop: '4px', flexShrink: 0 }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleExpand();
-          }}
-          style={{ cursor: 'pointer' }}
-        >
-          <span style={{ fontWeight: 600, display: 'block' }}>{module.title}</span>
-          {module.description && (
-            <span
-              style={{
-                fontSize: '14px',
-                color: '#666',
-                display: 'block',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: isExpanded ? 'normal' : 'nowrap',
-                maxHeight: isExpanded ? 'none' : '1.5em',
-              }}
-            >
-              {module.description}
-            </span>
-          )}
-        </div>
-      </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        style={{
-          padding: '8px 12px',
-          border: '2px solid #1a1a1a',
-          background: '#ff6b9d',
-          cursor: 'pointer',
-          fontWeight: 600,
-          flexShrink: 0,
-        }}
-      >
-        X
-      </button>
-    </div>
-  );
-}
+import { ModuleList } from '../components/ModuleList';
 
 export function Start() {
   const navigate = useNavigate();
@@ -98,11 +15,16 @@ export function Start() {
     mode: 'practice',
     randomize: false,
     distributionMode: 'equal',
+    timerEnabled: false,
+    timerHours: 0,
+    timerMinutes: 30,
+    timerSeconds: 0,
   });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [assignCategory, setAssignCategory] = useState('');
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -121,25 +43,7 @@ export function Start() {
     );
   }, [modules, searchQuery]);
 
-  const groupedModules = useMemo(() => {
-    const groups: Record<string, Module[]> = {};
-    const uncategorized: Module[] = [];
-    
-    for (const mod of filteredModules) {
-      if (mod.categoryId) {
-        if (!groups[mod.categoryId]) {
-          groups[mod.categoryId] = [];
-        }
-        groups[mod.categoryId].push(mod);
-      } else {
-        uncategorized.push(mod);
-      }
-    }
-    
-    return { groups, uncategorized };
-  }, [filteredModules]);
 
-  const sortedCategories = Object.keys(groupedModules.groups).sort();
 
   const handleUpload = useCallback((newModules: Module[]) => {
     setModules(prev => [...prev, ...newModules]);
@@ -174,6 +78,24 @@ export function Start() {
     }));
   }, [setModules, setConfig]);
 
+  const handleToggleCollapse = useCallback((key: string) => {
+    setCollapsedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectAll = useCallback((moduleIds: string[], select: boolean) => {
+    setConfig(prev => ({
+      ...prev,
+      selectedModuleIds: select
+        ? [...new Set([...prev.selectedModuleIds, ...moduleIds])]
+        : prev.selectedModuleIds.filter(id => !moduleIds.includes(id))
+    }));
+  }, [setConfig]);
+
   const handleMassAssign = useCallback(() => {
     if (!assignCategory) return;
     const finalCategory = assignCategory.startsWith('__new__:')
@@ -199,17 +121,22 @@ export function Start() {
 
   const handleStart = () => {
     if (config.selectedModuleIds.length === 0) return;
-    
+
     const selectedModules = modules.filter(m => config.selectedModuleIds.includes(m.id));
-    navigate('/running', {
-      state: {
-        modules: selectedModules,
-        mode: config.mode,
-        randomize: config.randomize,
-        questionLimit: config.randomize ? config.questionLimit : undefined,
-        distributionMode: config.randomize ? config.distributionMode : undefined,
-      },
-    });
+    const totalSeconds = config.timerEnabled
+      ? config.timerHours * 3600 + config.timerMinutes * 60 + config.timerSeconds
+      : 0;
+    const runningState = {
+      modules: selectedModules,
+      mode: config.mode,
+      randomize: config.randomize,
+      questionLimit: config.randomize ? config.questionLimit : undefined,
+      distributionMode: config.randomize ? config.distributionMode : undefined,
+      timerDuration: totalSeconds,
+      timerStart: totalSeconds > 0 ? Date.now() : undefined,
+    };
+    sessionStorage.setItem('jayawijaya-running', JSON.stringify(runningState));
+    navigate('/running', { state: runningState });
   };
 
   const totalQuestions = modules
@@ -245,6 +172,7 @@ export function Start() {
   return (
     <div
       style={{
+        width: '100%',
         minHeight: '100vh',
         padding: '24px',
         display: 'flex',
@@ -326,7 +254,7 @@ export function Start() {
         </div>
       )}
 
-      <div className="neu-box" style={{ padding: '24px' }}>
+      <div className="neu-box" style={{ padding: '24px', overflow: 'hidden', width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ fontWeight: 700 }}>Modules</h2>
           <ModuleUploader onUpload={handleUpload} existingModules={modules} />
@@ -349,83 +277,17 @@ export function Start() {
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {sortedCategories.map(category => {
-              const moduleIds = groupedModules.groups[category].map(m => m.id);
-              const allSelected = moduleIds.every(id => config.selectedModuleIds.includes(id));
-              return (
-                <div key={category} className="neu-box" style={{ padding: '12px', background: '#f0f0f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <h3 style={{ margin: 0, fontWeight: 700, fontSize: '16px' }}>{category}</h3>
-                    <button
-                      onClick={() => {
-                        if (allSelected) {
-                          setConfig(prev => ({ ...prev, selectedModuleIds: prev.selectedModuleIds.filter(id => !moduleIds.includes(id)) }));
-                        } else {
-                          setConfig(prev => ({ ...prev, selectedModuleIds: [...new Set([...prev.selectedModuleIds, ...moduleIds])] }));
-                        }
-                      }}
-                      className="neu-btn"
-                      style={{ padding: '4px 8px', fontSize: '12px' }}
-                    >
-                      {allSelected ? 'Deselect All' : 'Select All'}
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {groupedModules.groups[category].map(module => (
-                      <ModuleRow
-                        key={module.id}
-                        module={module}
-                        isSelected={config.selectedModuleIds.includes(module.id)}
-                        isExpanded={expandedModules.has(module.id)}
-                        onToggleSelect={() => handleToggleModule(module.id)}
-                        onToggleExpand={() => handleToggleExpand(module.id)}
-                        onDelete={() => handleDeleteModule(module.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            
-            {groupedModules.uncategorized.length > 0 && (() => {
-              const moduleIds = groupedModules.uncategorized.map(m => m.id);
-              const allSelected = moduleIds.every(id => config.selectedModuleIds.includes(id));
-              return (
-                <div className="neu-box" style={{ padding: '12px', background: '#fff' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <h3 style={{ margin: 0, fontWeight: 700, fontSize: '16px' }}>Uncategorized</h3>
-                    <button
-                      onClick={() => {
-                        if (allSelected) {
-                          setConfig(prev => ({ ...prev, selectedModuleIds: prev.selectedModuleIds.filter(id => !moduleIds.includes(id)) }));
-                        } else {
-                          setConfig(prev => ({ ...prev, selectedModuleIds: [...new Set([...prev.selectedModuleIds, ...moduleIds])] }));
-                        }
-                      }}
-                      className="neu-btn"
-                      style={{ padding: '4px 8px', fontSize: '12px' }}
-                    >
-                      {allSelected ? 'Deselect All' : 'Select All'}
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {groupedModules.uncategorized.map(module => (
-                      <ModuleRow
-                        key={module.id}
-                        module={module}
-                        isSelected={config.selectedModuleIds.includes(module.id)}
-                        isExpanded={expandedModules.has(module.id)}
-                        onToggleSelect={() => handleToggleModule(module.id)}
-                        onToggleExpand={() => handleToggleExpand(module.id)}
-                        onDelete={() => handleDeleteModule(module.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+          <ModuleList
+            modules={filteredModules}
+            selectedIds={config.selectedModuleIds}
+            expandedModules={expandedModules}
+            collapsedCategories={collapsedCategories}
+            onToggleModule={handleToggleModule}
+            onToggleExpand={handleToggleExpand}
+            onDeleteModule={handleDeleteModule}
+            onToggleCollapse={handleToggleCollapse}
+            onToggleSelectAll={handleToggleSelectAll}
+          />
         )}
       </div>
 
@@ -563,6 +425,68 @@ export function Start() {
                 </div>
               </div>
             ) : null}
+          </div>
+        )}
+      </div>
+
+      <div className="neu-box" style={{ padding: '24px' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={config.timerEnabled}
+            onChange={e => {
+              setConfig(prev => ({ ...prev, timerEnabled: e.target.checked }));
+            }}
+            style={{ width: '24px', height: '24px' }}
+          />
+          <span style={{ fontWeight: 700, fontSize: '18px' }}>Timer</span>
+        </label>
+        {config.timerEnabled && (
+          <div style={{ marginTop: '16px' }}>
+            <label style={{ fontWeight: 700, fontSize: '16px', display: 'block', marginBottom: '8px' }}>
+              Time Limit
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="number"
+                min={0}
+                max={99}
+                value={config.timerHours}
+                onChange={e => {
+                  const v = Math.max(0, Math.min(99, parseInt(e.target.value) || 0));
+                  setConfig(prev => ({ ...prev, timerHours: v }));
+                }}
+                className="neu-input"
+                style={{ width: 'auto', textAlign: 'center' }}
+              />
+              <span style={{ fontWeight: 600 }}>h</span>
+              <input
+                type="number"
+                min={0}
+                max={59}
+                value={config.timerMinutes}
+                onChange={e => {
+                  const v = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+                  setConfig(prev => ({ ...prev, timerMinutes: v }));
+                }}
+                className="neu-input"
+                style={{ width: 'auto', textAlign: 'center' }}
+              />
+              <span style={{ fontWeight: 600 }}>m</span>
+              <input
+                type="number"
+                min={0}
+                max={59}
+                value={config.timerSeconds}
+                onChange={e => {
+                  const v = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+                  setConfig(prev => ({ ...prev, timerSeconds: v }));
+                }}
+                className="neu-input"
+                style={{ width: 'auto', textAlign: 'center' }}
+              />
+              <span style={{ fontWeight: 600 }}>s</span>
+            </div>
           </div>
         )}
       </div>

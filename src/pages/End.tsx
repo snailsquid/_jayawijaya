@@ -10,6 +10,7 @@ interface EndState {
   randomize?: boolean;
   questionLimit?: number;
   distributionMode?: 'equal' | 'proportional';
+  timerDuration?: number;
 }
 
 function getUserAnswerText(question: Question, userAnswer: number | number[] | string | null): string {
@@ -70,6 +71,8 @@ export function End() {
 
   const handleRetry = () => {
     if (!modules || modules.length === 0) {
+      sessionStorage.removeItem('jayawijaya-running');
+      sessionStorage.removeItem('jayawijaya-quizstate');
       navigate('/start');
       return;
     }
@@ -77,7 +80,11 @@ export function End() {
     const randomize = endState?.randomize ?? false;
     const questionLimit = endState?.questionLimit;
     const distributionMode = endState?.distributionMode;
-    navigate('/running', { state: { modules, mode, randomize, questionLimit, distributionMode } });
+    const timerDuration = endState?.timerDuration;
+    const totalSeconds = timerDuration ?? 0;
+    const runningState = { modules, mode, randomize, questionLimit, distributionMode, timerDuration, timerStart: totalSeconds > 0 ? Date.now() : undefined };
+    sessionStorage.setItem('jayawijaya-running', JSON.stringify(runningState));
+    navigate('/running', { state: runningState });
   };
 
   return (

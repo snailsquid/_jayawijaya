@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { Module, QuizMode, QuizState, Question } from '../types/quiz';
 import { useQuiz } from '../hooks/useQuiz';
@@ -11,6 +11,8 @@ interface RunningState {
   randomize: boolean;
   questionLimit?: number;
   distributionMode?: 'equal' | 'proportional';
+  timerDuration?: number;
+  timerStart?: number;
 }
 
 function ConfirmPopup({
@@ -70,10 +72,27 @@ export function Running() {
   const location = useLocation();
   const { initializeQuiz, calculateResults, getQuestionState } = useQuiz();
   
-  const initialState = location.state as RunningState | null;
+  const locationState = location.state as RunningState | null;
+  const initialState = useMemo(() => {
+    if (locationState?.modules) return locationState;
+    const saved = sessionStorage.getItem('jayawijaya-running');
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* ignore */ }
+    }
+    return null;
+  }, [locationState]);
+
   const [quizState, setQuizState] = useState<{ questions: Question[]; state: QuizState }>(() => {
     if (!initialState?.modules) {
       return { questions: [], state: {} as QuizState };
+    }
+    const savedState = sessionStorage.getItem('jayawijaya-quizstate');
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        sessionStorage.removeItem('jayawijaya-quizstate');
+        return parsed;
+      } catch { /* ignore */ }
     }
     const { questions, state } = initializeQuiz(
       initialState.modules,
@@ -88,6 +107,54 @@ export function Running() {
   const [practiceSubmitted, setPracticeSubmitted] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'next' | 'finish' | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    const dur = initialState?.timerDuration;
+    const start = initialState?.timerStart;
+    if (!dur || dur <= 0) return 0;
+    if (start) {
+      const elapsed = Math.floor((Date.now() - start) / 1000);
+      return Math.max(0, dur - elapsed);
+    }
+    return dur;
+  });
+  const timerFinished = useRef(false);
+  const confirmFinishRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    const dur = initialState?.timerDuration;
+    if (!dur || dur <= 0) return;
+    timerFinished.current = false;
+
+    const id = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(id);
+          timerFinished.current = true;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [initialState?.timerDuration]);
+
+  useEffect(() => {
+    if (timerFinished.current) {
+      confirmFinishRef.current();
+    }
+  }, [timeLeft]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem('jayawijaya-quizstate', JSON.stringify(quizState));
+      if (initialState) {
+        sessionStorage.setItem('jayawijaya-running', JSON.stringify(initialState));
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [quizState, initialState]);
 
   const { questions, state } = quizState;
   const currentQuestion = questions[state.currentQuestionIndex];
@@ -170,8 +237,15 @@ export function Running() {
     const randomize = initialState?.randomize ?? false;
     const questionLimit = initialState?.questionLimit;
     const distributionMode = initialState?.distributionMode;
-    navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, randomize, questionLimit, distributionMode } });
+    const timerDuration = initialState?.timerDuration;
+    sessionStorage.removeItem('jayawijaya-running');
+    sessionStorage.removeItem('jayawijaya-quizstate');
+    navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, randomize, questionLimit, distributionMode, timerDuration } });
   }, [calculateResults, questions, state.answers, navigate, mode, initialState]);
+
+  useEffect(() => {
+    confirmFinishRef.current = confirmFinish;
+  });
 
   if (!currentQuestion) {
     return (
@@ -205,13 +279,19 @@ export function Running() {
     }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button onClick={() => navigate('/start')} className="neu-btn">
+        <button onClick={() => { sessionStorage.removeItem('jayawijaya-running'); sessionStorage.removeItem('jayawijaya-quizstate'); navigate('/start'); }} className="neu-btn">
           ← Exit
         </button>
         <div style={{ fontWeight: 700, fontSize: '18px' }}>
           {state.currentQuestionIndex + 1} / {questions.length}
         </div>
-        <div style={{ width: '80px' }} />
+        <div style={{ width: '80px', textAlign: 'right' }}>
+          {timeLeft > 0 && (
+            <span style={{ fontWeight: 700, fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}>
+              {Math.floor(timeLeft / 3600)}:{String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}:{String(timeLeft % 60).padStart(2, '0')}
+            </span>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start' }}>
