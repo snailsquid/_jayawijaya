@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { InstallPrompt } from '../components/InstallPrompt';
 
 export function Home() {
   const navigate = useNavigate();
@@ -47,6 +48,7 @@ export function Home() {
           How to create<br />modules?
         </button>
       </div>
+      <InstallPrompt />
     </div>
   );
 }
