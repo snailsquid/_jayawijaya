@@ -41,6 +41,13 @@ export function Home() {
           START
         </button>
         <button
+          onClick={() => navigate('/pricing')}
+          className="neu-btn"
+          style={{ fontSize: '14px', padding: '10px 30px', width:'100%', alignSelf: 'center', maxWidth: '200px', textAlign: 'center', lineHeight: 1.2, background: 'var(--color-neu-accent-3)' }}
+        >
+          Pricing
+        </button>
+        <button
           onClick={() => navigate('/how-to-create-modules')}
           className="neu-btn neu-btn-secondary"
           style={{ fontSize: '14px', padding: '10px 30px', width:'100%', alignSelf: 'center', maxWidth: '200px', textAlign: 'center', lineHeight: 1.2 }}
