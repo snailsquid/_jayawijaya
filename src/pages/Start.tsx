@@ -1,15 +1,18 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useLiveCategory } from '../hooks/useLiveCategory';
 import { calculateAllocation } from '../hooks/useQuiz';
-import type { Module, QuizConfig } from '../types/quiz';
+import type { Module, QuizConfig, LiveCategory } from '../types/quiz';
 import { ModeSelector } from '../components/ModeSelector';
 import { ModuleUploader } from '../components/ModuleUploader';
 import { ModuleList } from '../components/ModuleList';
+import { LiveCategoryModal } from '../components/LiveCategoryModal';
 
 export function Start() {
   const navigate = useNavigate();
   const [modules, setModules] = useLocalStorage<Module[]>('jayawijaya-modules', []);
+  const [liveCategories, setLiveCategories] = useLocalStorage<LiveCategory[]>('jayawijaya-live-categories', []);
   const [config, setConfig] = useLocalStorage<QuizConfig>('jayawijaya-config', {
     selectedModuleIds: [],
     mode: 'practice',
@@ -21,33 +24,84 @@ export function Start() {
     timerSeconds: 0,
   });
 
+  const { syncLiveCategory } = useLiveCategory();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [assignCategory, setAssignCategory] = useState('');
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [liveCategoryModalOpen, setLiveCategoryModalOpen] = useState(false);
+  const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
+  const [deleteCategoryDialog, setDeleteCategoryDialog] = useState<{
+    type: 'live' | 'normal';
+    categoryName?: string;
+    liveCategoryId?: string;
+  } | null>(null);
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
+    const liveCatNames = new Set(liveCategories.map(lc => lc.name));
     modules.forEach(m => {
-      if (m.categoryId) cats.add(m.categoryId);
+      if (m.categoryId && !liveCatNames.has(m.categoryId)) cats.add(m.categoryId);
     });
     return Array.from(cats).sort();
-  }, [modules]);
+  }, [modules, liveCategories]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function syncAll() {
+      let changed = false;
+      let newModules = modules;
+      const newLiveCategories = [...liveCategories];
+
+      for (let i = 0; i < newLiveCategories.length; i++) {
+        const lc = newLiveCategories[i];
+        if (lc.isSyncing) continue;
+
+        newLiveCategories[i] = { ...lc, isSyncing: true };
+        setLiveCategories(newLiveCategories);
+
+        try {
+          const result = await syncLiveCategory(lc, newModules);
+          newModules = result.modules;
+          newLiveCategories[i] = result.liveCategory;
+          changed = true;
+        } catch {
+          newLiveCategories[i] = { ...lc, isSyncing: false };
+        }
+      }
+
+      if (cancelled) return;
+      setLiveCategories(newLiveCategories);
+      if (changed) setModules(newModules);
+    }
+
+    if (liveCategories.length > 0) {
+      syncAll();
+    }
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredModules = useMemo(() => {
     if (!searchQuery) return modules;
     const query = searchQuery.toLowerCase();
-    return modules.filter(m => 
+    return modules.filter(m =>
       m.title.toLowerCase().includes(query) ||
       m.categoryId?.toLowerCase().includes(query)
     );
   }, [modules, searchQuery]);
 
-
-
   const handleUpload = useCallback((newModules: Module[]) => {
     setModules(prev => [...prev, ...newModules]);
   }, [setModules]);
+
+  const handleAddLiveCategory = useCallback((liveCategory: LiveCategory, newModules: Module[]) => {
+    setLiveCategories(prev => [...prev, liveCategory]);
+    setModules(prev => [...prev, ...newModules]);
+  }, [setLiveCategories, setModules]);
 
   const handleToggleModule = useCallback((moduleId: string) => {
     setConfig(prev => ({
@@ -71,12 +125,61 @@ export function Start() {
   }, []);
 
   const handleDeleteModule = useCallback((moduleId: string) => {
+    const module = modules.find(m => m.id === moduleId);
+    if (module?.liveCategoryId) return;
     setModules(prev => prev.filter(m => m.id !== moduleId));
     setConfig(prev => ({
       ...prev,
       selectedModuleIds: prev.selectedModuleIds.filter(id => id !== moduleId)
     }));
-  }, [setModules, setConfig]);
+  }, [setModules, setConfig, modules]);
+
+  const handleDeleteCategoryRequest = useCallback((categoryName: string) => {
+    setDeleteCategoryDialog({ type: 'normal', categoryName });
+  }, []);
+
+  const handleDeleteLiveCategoryRequest = useCallback((liveCategoryId: string) => {
+    setDeleteCategoryDialog({ type: 'live', liveCategoryId });
+  }, []);
+
+  const handleConfirmDeleteCategory = useCallback((action: 'delete' | 'uncategorize') => {
+    const dialog = deleteCategoryDialog;
+    if (!dialog || dialog.type !== 'normal' || !dialog.categoryName) return;
+    const catName = dialog.categoryName;
+
+    if (action === 'delete') {
+      setModules(prev => prev.filter(m => m.categoryId !== catName));
+    } else {
+      setModules(prev => prev.map(m =>
+        m.categoryId === catName ? { ...m, categoryId: undefined } : m
+      ));
+    }
+    setConfig(prev => ({
+      ...prev,
+      selectedModuleIds: prev.selectedModuleIds.filter(id => {
+        const mod = modules.find(m => m.id === id);
+        return !mod || mod.categoryId !== catName;
+      })
+    }));
+    setDeleteCategoryDialog(null);
+  }, [deleteCategoryDialog, setModules, setConfig, modules]);
+
+  const handleConfirmDeleteLiveCategory = useCallback(() => {
+    const dialog = deleteCategoryDialog;
+    if (!dialog || dialog.type !== 'live' || !dialog.liveCategoryId) return;
+    const lcId = dialog.liveCategoryId;
+
+    setLiveCategories(prev => prev.filter(lc => lc.id !== lcId));
+    setModules(prev => prev.filter(m => m.liveCategoryId !== lcId));
+    setConfig(prev => ({
+      ...prev,
+      selectedModuleIds: prev.selectedModuleIds.filter(id => {
+        const mod = modules.find(m => m.id === id);
+        return !mod || mod.liveCategoryId !== lcId;
+      })
+    }));
+    setDeleteCategoryDialog(null);
+  }, [deleteCategoryDialog, setLiveCategories, setModules, setConfig, modules]);
 
   const handleToggleCollapse = useCallback((key: string) => {
     setCollapsedCategories(prev => {
@@ -103,7 +206,7 @@ export function Start() {
       : assignCategory;
     setConfig(prev => {
       const newModules = modules.map(m => {
-        if (prev.selectedModuleIds.includes(m.id)) {
+        if (prev.selectedModuleIds.includes(m.id) && !m.liveCategoryId) {
           return { ...m, categoryId: finalCategory };
         }
         return m;
@@ -115,13 +218,24 @@ export function Start() {
   }, [assignCategory, setConfig, modules, setModules]);
 
   const handleMassDelete = useCallback(() => {
-    setModules(prev => prev.filter(m => !config.selectedModuleIds.includes(m.id)));
-    setConfig(prev => ({ ...prev, selectedModuleIds: [] }));
-  }, [config.selectedModuleIds, setModules, setConfig]);
+    const toDelete = config.selectedModuleIds.filter(id => {
+      const mod = modules.find(m => m.id === id);
+      return mod && !mod.liveCategoryId;
+    });
+    setModules(prev => prev.filter(m => !toDelete.includes(m.id)));
+    setConfig(prev => ({
+      ...prev,
+      selectedModuleIds: prev.selectedModuleIds.filter(id => !toDelete.includes(id)),
+    }));
+  }, [config.selectedModuleIds, setModules, setConfig, modules]);
 
-  const handleStart = () => {
+  const handleStartConfirm = () => {
+    setSyncConfirmOpen(false);
+    doStart();
+  };
+
+  const doStart = () => {
     if (config.selectedModuleIds.length === 0) return;
-
     const selectedModules = modules.filter(m => config.selectedModuleIds.includes(m.id));
     const totalSeconds = config.timerEnabled
       ? config.timerHours * 3600 + config.timerMinutes * 60 + config.timerSeconds
@@ -137,6 +251,23 @@ export function Start() {
     };
     sessionStorage.setItem('jayawijaya-running', JSON.stringify(runningState));
     navigate('/running', { state: runningState });
+  };
+
+  const handleStart = () => {
+    if (config.selectedModuleIds.length === 0) return;
+
+    const hasSyncingModule = config.selectedModuleIds.some(id => {
+      const mod = modules.find(m => m.id === id);
+      if (!mod?.liveCategoryId) return false;
+      const lc = liveCategories.find(l => l.id === mod.liveCategoryId);
+      return lc?.isSyncing ?? false;
+    });
+
+    if (hasSyncingModule) {
+      setSyncConfirmOpen(true);
+    } else {
+      doStart();
+    }
   };
 
   const totalQuestions = modules
@@ -246,9 +377,14 @@ export function Start() {
       )}
 
       <div className="neu-box" style={{ padding: '24px', overflow: 'hidden', width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px' }}>
           <h2 style={{ fontWeight: 700 }}>Modules</h2>
-          <ModuleUploader onUpload={handleUpload} existingModules={modules} />
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <ModuleUploader onUpload={handleUpload} existingModules={modules} />
+            <button onClick={() => setLiveCategoryModalOpen(true)} className="neu-btn neu-btn-secondary">
+              Live Category
+            </button>
+          </div>
         </div>
 
         <input
@@ -259,7 +395,7 @@ export function Start() {
           className="neu-input"
           style={{ width: '100%', marginBottom: '16px' }}
         />
-        
+
         {modules.length === 0 ? (
           <div style={{ textAlign: 'center' }}>
             <p style={{ color: '#666' }}>No modules uploaded yet.</p>
@@ -278,6 +414,9 @@ export function Start() {
             onDeleteModule={handleDeleteModule}
             onToggleCollapse={handleToggleCollapse}
             onToggleSelectAll={handleToggleSelectAll}
+            liveCategories={liveCategories}
+            onDeleteCategory={handleDeleteCategoryRequest}
+            onDeleteLiveCategory={handleDeleteLiveCategoryRequest}
           />
         )}
       </div>
@@ -437,69 +576,188 @@ export function Start() {
             <label style={{ fontWeight: 700, fontSize: '16px', display: 'block', marginBottom: '8px' }}>
               Time Limit
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
                 type="number"
-                min={0}
-                max={99}
-                value={config.timerHours}
+                value={config.timerHours ?? 0}
                 onChange={e => {
-                  const v = Math.max(0, Math.min(99, parseInt(e.target.value) || 0));
-                  setConfig(prev => ({ ...prev, timerHours: v }));
+                  const val = parseInt(e.target.value) || 0;
+                  setConfig(prev => ({ ...prev, timerHours: Math.max(0, val) }));
                 }}
                 className="neu-input"
-                style={{ width: 'auto', textAlign: 'center' }}
+                style={{ width: '64px', textAlign: 'center' }}
               />
-              <span style={{ fontWeight: 600 }}>h</span>
+              <span>h</span>
               <input
                 type="number"
-                min={0}
-                max={59}
-                value={config.timerMinutes}
+                value={config.timerMinutes ?? 30}
                 onChange={e => {
-                  const v = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
-                  setConfig(prev => ({ ...prev, timerMinutes: v }));
+                  const val = parseInt(e.target.value) || 0;
+                  setConfig(prev => ({ ...prev, timerMinutes: Math.max(0, Math.min(59, val)) }));
                 }}
                 className="neu-input"
-                style={{ width: 'auto', textAlign: 'center' }}
+                style={{ width: '64px', textAlign: 'center' }}
               />
-              <span style={{ fontWeight: 600 }}>m</span>
+              <span>m</span>
               <input
                 type="number"
-                min={0}
-                max={59}
-                value={config.timerSeconds}
+                value={config.timerSeconds ?? 0}
                 onChange={e => {
-                  const v = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
-                  setConfig(prev => ({ ...prev, timerSeconds: v }));
+                  const val = parseInt(e.target.value) || 0;
+                  setConfig(prev => ({ ...prev, timerSeconds: Math.max(0, Math.min(59, val)) }));
                 }}
                 className="neu-input"
-                style={{ width: 'auto', textAlign: 'center' }}
+                style={{ width: '64px', textAlign: 'center' }}
               />
-              <span style={{ fontWeight: 600 }}>s</span>
+              <span>s</span>
             </div>
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ fontSize: '18px', fontWeight: 700, flex: '1 1 200px', minWidth: 0 }}>
-          Selected: {config.selectedModuleIds.length} modules, {totalQuestions} questions
-        </div>
-        <button
-          onClick={handleStart}
-          disabled={config.selectedModuleIds.length === 0}
-          className="neu-btn neu-btn-primary"
+      <button
+        onClick={handleStart}
+        disabled={!hasSelection}
+        className="neu-btn neu-btn-primary"
+        style={{
+          width: '100%',
+          padding: '20px',
+          fontSize: '24px',
+          opacity: hasSelection ? 1 : 0.4,
+          cursor: hasSelection ? 'pointer' : 'not-allowed',
+        }}
+      >
+        START QUIZ
+      </button>
+
+      <LiveCategoryModal
+        open={liveCategoryModalOpen}
+        onClose={() => setLiveCategoryModalOpen(false)}
+        onAdd={handleAddLiveCategory}
+        existingLiveCategories={liveCategories}
+      />
+
+      {syncConfirmOpen && (
+        <div
           style={{
-            fontSize: '20px',
-            padding: '16px 32px',
-            opacity: config.selectedModuleIds.length === 0 ? 0.5 : 1,
-            flexShrink: 0,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
           }}
+          onClick={() => setSyncConfirmOpen(false)}
         >
-          START QUIZ
-        </button>
-      </div>
+          <div
+            style={{
+              backgroundColor: '#fff',
+              border: '4px solid #c084fc',
+              boxShadow: '4px 4px 0px #1a1a1a',
+              padding: '24px',
+              maxWidth: '400px',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px' }}>
+              A Live Category is currently syncing. Start anyway?
+            </p>
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+              <button onClick={() => setSyncConfirmOpen(false)} className="neu-btn">
+                Cancel
+              </button>
+              <button onClick={handleStartConfirm} className="neu-btn neu-btn-primary">
+                Start
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteCategoryDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setDeleteCategoryDialog(null)}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              border: '4px solid #1a1a1a',
+              boxShadow: '4px 4px 0px #1a1a1a',
+              padding: '24px',
+              maxWidth: '420px',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {deleteCategoryDialog.type === 'live' ? (
+              <>
+                <p style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>
+                  Delete this Live Category?
+                </p>
+                <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
+                  All modules in this category will be removed.
+                </p>
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+                  <button onClick={() => setDeleteCategoryDialog(null)} className="neu-btn">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDeleteLiveCategory}
+                    className="neu-btn"
+                    style={{ background: '#ff6b9d' }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>
+                  Delete category "{deleteCategoryDialog.categoryName}"?
+                </p>
+                <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
+                  Choose what to do with the modules inside.
+                </p>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button onClick={() => setDeleteCategoryDialog(null)} className="neu-btn">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleConfirmDeleteCategory('uncategorize')}
+                    className="neu-btn neu-btn-secondary"
+                  >
+                    Uncategorize
+                  </button>
+                  <button
+                    onClick={() => handleConfirmDeleteCategory('delete')}
+                    className="neu-btn"
+                    style={{ background: '#ff6b9d' }}
+                  >
+                    Delete Modules
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -20,14 +20,27 @@ export interface Module {
   description?: string;
   questions: Question[];
   categoryId?: string;
+  liveCategoryId?: string;
   hash?: string;
 }
 
 export interface Category {
   id: string;
   name: string;
+  description?: string;
   moduleIds: string[];
   isExpanded?: boolean;
+}
+
+export interface LiveCategory {
+  id: string;
+  url: string;
+  name: string;
+  description: string;
+  version: string;
+  moduleFiles: string[];
+  lastUpdated?: string;
+  isSyncing?: boolean;
 }
 
 export interface QuizState {

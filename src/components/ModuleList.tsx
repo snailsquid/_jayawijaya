@@ -1,5 +1,5 @@
 import { IoMdClose } from 'react-icons/io';
-import type { Module } from '../types/quiz';
+import type { Module, LiveCategory } from '../types/quiz';
 
 interface ModuleRowProps {
   module: Module;
@@ -8,6 +8,7 @@ interface ModuleRowProps {
   onToggleSelect: () => void;
   onToggleExpand: () => void;
   onDelete: () => void;
+  isLive: boolean;
 }
 
 function ModuleRow({
@@ -17,6 +18,7 @@ function ModuleRow({
   onToggleSelect,
   onToggleExpand,
   onDelete,
+  isLive,
 }: ModuleRowProps) {
   return (
     <div
@@ -69,27 +71,29 @@ function ModuleRow({
           </span>
         )}
       </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        style={{
-          width: '35px',
-          height: '35px',
-          alignSelf: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '2px solid #1a1a1a',
-          background: '#ff6b9d',
-          cursor: 'pointer',
-          fontWeight: 600,
-          flexShrink: 0,
-        }}
-      >
-        <IoMdClose/>
-      </button>
+      {!isLive && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          style={{
+            width: '35px',
+            height: '35px',
+            alignSelf: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '2px solid #1a1a1a',
+            background: '#ff6b9d',
+            cursor: 'pointer',
+            fontWeight: 600,
+            flexShrink: 0,
+          }}
+        >
+          <IoMdClose/>
+        </button>
+      )}
     </div>
   );
 }
@@ -106,6 +110,35 @@ interface ModuleCategoryGroupProps {
   onDeleteModule: (id: string) => void;
   onToggleCollapse: (key: string) => void;
   onToggleSelectAll: (moduleIds: string[], select: boolean) => void;
+  onDeleteCategory?: () => void;
+  isLive?: boolean;
+  liveInfo?: LiveCategory;
+}
+
+function CategoryDeleteButton({ onClick, color }: { onClick: () => void; color: string }) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      style={{
+        width: '28px',
+        height: '28px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: '2px solid #1a1a1a',
+        background: color,
+        cursor: 'pointer',
+        fontWeight: 600,
+        flexShrink: 0,
+        padding: 0,
+      }}
+    >
+      <IoMdClose />
+    </button>
+  );
 }
 
 function ModuleCategoryGroup({
@@ -120,29 +153,74 @@ function ModuleCategoryGroup({
   onDeleteModule,
   onToggleCollapse,
   onToggleSelectAll,
+  onDeleteCategory,
+  isLive,
+  liveInfo,
 }: ModuleCategoryGroupProps) {
   const isCollapsed = collapsedCategories.has(groupKey);
   const moduleIds = modules.map(m => m.id);
   const allSelected = moduleIds.every(id => selectedIds.includes(id));
 
+  const isSyncing = liveInfo?.isSyncing ?? false;
+  const lastUpdated = liveInfo?.lastUpdated;
+
   return (
-    <div className="neu-box" style={{ width: '100%', overflow: 'hidden', padding: '12px', background: title === 'Uncategorized' ? '#fff' : '#f0f0f0' }}>
+    <div
+      className="neu-box"
+      style={{
+        width: '100%',
+        overflow: 'hidden',
+        padding: '12px',
+        background: title === 'Uncategorized' ? '#fff' : '#f0f0f0',
+        borderColor: isLive ? '#c084fc' : undefined,
+        borderWidth: isLive ? '4px' : undefined,
+      }}
+    >
       <div
         onClick={() => onToggleCollapse(groupKey)}
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isCollapsed ? 0 : '12px', cursor: 'pointer', userSelect: 'none' }}
       >
-        <h3 style={{ margin: 0, fontWeight: 700, fontSize: '16px' }}>{isCollapsed ? '▶' : '▼'} {title}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h3 style={{ margin: 0, fontWeight: 700, fontSize: '16px' }}>{isCollapsed ? '▶' : '▼'} {title}</h3>
+          {isLive && liveInfo && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+              <span style={{
+                background: '#c084fc',
+                color: '#fff',
+                padding: '2px 8px',
+                fontWeight: 700,
+              }}>
+                LIVE
+              </span>
+              <span style={{ color: '#666' }}>v{liveInfo.version}</span>
+              {isSyncing ? (
+                <span style={{ color: '#c084fc', fontWeight: 700 }}>
+                  Syncing...
+                </span>
+              ) : lastUpdated ? (
+                <span style={{ color: '#888' }}>
+                  {new Date(lastUpdated).toLocaleDateString()}
+                </span>
+              ) : null}
+            </div>
+          )}
+        </div>
         {!isCollapsed && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSelectAll(moduleIds, !allSelected);
-            }}
-            className="neu-btn"
-            style={{ padding: '4px 8px', fontSize: '12px' }}
-          >
-            {allSelected ? 'Deselect All' : 'Select All'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelectAll(moduleIds, !allSelected);
+              }}
+              className="neu-btn"
+              style={{ padding: '4px 8px', fontSize: '12px' }}
+            >
+              {allSelected ? 'Deselect All' : 'Select All'}
+            </button>
+            {onDeleteCategory && (
+              <CategoryDeleteButton onClick={onDeleteCategory} color={isLive ? '#c084fc' : '#ff6b9d'} />
+            )}
+          </div>
         )}
       </div>
       {!isCollapsed && (
@@ -156,6 +234,7 @@ function ModuleCategoryGroup({
               onToggleSelect={() => onToggleModule(module.id)}
               onToggleExpand={() => onToggleExpand(module.id)}
               onDelete={() => onDeleteModule(module.id)}
+              isLive={isLive ?? false}
             />
           ))}
         </div>
@@ -174,6 +253,9 @@ interface ModuleListProps {
   onDeleteModule: (id: string) => void;
   onToggleCollapse: (key: string) => void;
   onToggleSelectAll: (moduleIds: string[], select: boolean) => void;
+  liveCategories: LiveCategory[];
+  onDeleteCategory: (categoryName: string) => void;
+  onDeleteLiveCategory: (liveCategoryId: string) => void;
 }
 
 export function ModuleList({
@@ -186,13 +268,45 @@ export function ModuleList({
   onDeleteModule,
   onToggleCollapse,
   onToggleSelectAll,
+  liveCategories,
+  onDeleteCategory,
+  onDeleteLiveCategory,
 }: ModuleListProps) {
-  const categories = Array.from(new Set(modules.map(m => m.categoryId).filter(Boolean))).sort();
+  const liveCategoryNames = new Set(liveCategories.map(lc => lc.name));
+
+  const regularCategories = Array.from(
+    new Set(modules.map(m => m.categoryId).filter(Boolean))
+  )
+    .filter(name => !liveCategoryNames.has(name!))
+    .sort();
   const uncategorized = modules.filter(m => !m.categoryId);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-      {categories.map(category => (
+      {liveCategories.map(lc => {
+        const catModules = modules.filter(m => m.liveCategoryId === lc.id);
+        if (catModules.length === 0) return null;
+        return (
+          <ModuleCategoryGroup
+            key={`live-${lc.id}`}
+            title={lc.name}
+            modules={catModules}
+            selectedIds={selectedIds}
+            expandedModules={expandedModules}
+            collapsedCategories={collapsedCategories}
+            groupKey={`live-${lc.id}`}
+            onToggleModule={onToggleModule}
+            onToggleExpand={onToggleExpand}
+            onDeleteModule={onDeleteModule}
+            onToggleCollapse={onToggleCollapse}
+            onToggleSelectAll={onToggleSelectAll}
+            onDeleteCategory={() => onDeleteLiveCategory(lc.id)}
+            isLive
+            liveInfo={lc}
+          />
+        );
+      })}
+      {regularCategories.map(category => (
         <ModuleCategoryGroup
           key={category}
           title={category!}
@@ -206,6 +320,7 @@ export function ModuleList({
           onDeleteModule={onDeleteModule}
           onToggleCollapse={onToggleCollapse}
           onToggleSelectAll={onToggleSelectAll}
+          onDeleteCategory={() => onDeleteCategory(category!)}
         />
       ))}
       {uncategorized.length > 0 && (
