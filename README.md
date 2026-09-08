@@ -199,3 +199,18 @@ Upload test modules from `test_modules/`:
 ## License
 
 MIT
+# UI development
+
+The frontend uses shadcn/ui's New York style with Tailwind CSS v4. Reusable primitives live in `src/components/ui`; application compositions live directly under `src/components`. Add primitives with `bunx shadcn@latest add <component>`. Prefer semantic theme tokens and component variants over raw colors, and Tailwind utilities over inline presentation styles.
+
+Themes support light, dark, and system modes and persist under `jayawijaya-theme`.
+
+Validation commands:
+
+```bash
+bun run lint
+bun run build
+bun run test
+bun run test:e2e
+bun run check:ui
+```
