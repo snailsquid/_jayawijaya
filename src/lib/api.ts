@@ -43,4 +43,5 @@ export const paymentsApi = {
     method: 'POST', body: JSON.stringify({ productCode }),
   }),
   get: (orderId: string) => request<{ payment: Payment }>(`/api/payments/${encodeURIComponent(orderId)}`),
+  cancel: (orderId: string) => request<{ payment: Payment }>(`/api/payments/${encodeURIComponent(orderId)}`, { method: 'DELETE' }),
 };

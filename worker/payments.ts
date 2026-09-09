@@ -191,6 +191,27 @@ async function createPayment(request: Request, env: Env, user: AuthUser, provide
   }
 }
 
+async function cancelPayment(request: Request, env: Env, user: AuthUser, provider: PaymentProvider, orderId: string) {
+  if (request.headers.get('origin') !== new URL(request.url).origin) {
+    throw new PaymentError('Invalid request origin.', 403, 'INVALID_ORIGIN');
+  }
+  const row = await findPayment(env, orderId, user.id);
+  if (!row) return json({ error: { code: 'NOT_FOUND', message: 'Payment not found.' } }, 404);
+  if (row.status !== 'created' && row.status !== 'pending') {
+    throw new PaymentError('Only an active payment can be canceled.', 409, 'PAYMENT_NOT_ACTIVE');
+  }
+  if (!row.snap_token) {
+    const updated = await applyUpdate(env, row, {
+      status: 'canceled', providerStatus: 'cancel', transactionId: null, paymentType: null, fraudStatus: null,
+    });
+    return json({ payment: fromRow(updated) });
+  }
+  const payload = await provider.cancel(orderId);
+  validateProviderPayment(payload, { orderId: row.order_id, amount: Number(row.amount), currency: row.currency });
+  const updated = await applyUpdate(env, row, toProviderUpdate(payload));
+  return json({ payment: fromRow(updated) });
+}
+
 export async function handlePayments(request: Request, env: Env, auth: Auth): Promise<Response> {
   const user = await currentUser(auth, request);
   if (!user) return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required.' } }, 401);
@@ -220,6 +241,7 @@ export async function handlePayments(request: Request, env: Env, auth: Auth): Pr
       if (row.status === 'created' || row.status === 'pending') row = await reconcile(env, row, provider);
       return json({ payment: fromRow(row) });
     }
+    if (request.method === 'DELETE' && orderId) return cancelPayment(request, env, user, provider, orderId);
     return json({ error: { code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed.' } }, 405);
   } catch (error) {
     if (error instanceof PaymentError) return json({ error: { code: error.code, message: error.message } }, error.status);

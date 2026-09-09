@@ -98,6 +98,20 @@ describe('payment API', () => {
     expect((await api(`/api/payments/${orderId}`, bob)).status).toBe(404);
   });
 
+  it('lets the owner cancel a pending payment and start a replacement', async () => {
+    const cookie = await signUp('alice');
+    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const orderId = (await created.json() as { payment: { orderId: string } }).payment.orderId;
+    const canceled = await api(`/api/payments/${orderId}`, cookie, { method: 'DELETE' });
+    expect(canceled.status).toBe(200);
+    expect((await canceled.json() as { payment: { status: string; snapToken: string | null } }).payment)
+      .toMatchObject({ status: 'canceled', snapToken: null });
+
+    const replacement = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    expect(replacement.status).toBe(201);
+    expect((await replacement.json() as { payment: { orderId: string } }).payment.orderId).not.toBe(orderId);
+  });
+
   it('verifies and idempotently persists notifications without granting Pro', async () => {
     const cookie = await signUp('alice');
     const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
