@@ -1,54 +1,16 @@
-import { useNavigate } from 'react-router-dom';
-import { InstallPrompt } from '../components/InstallPrompt';
+import { BookOpen, Play } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { InstallPrompt } from "@/components/InstallPrompt"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { Button } from "@/components/ui/button"
 
 export function Home() {
-  const navigate = useNavigate();
-
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '24px',
-        padding: '24px',
-      }}
-    >
-      <h1
-        style={{
-          fontSize: 'clamp(48px, 10vw, 96px)',
-          fontWeight: 900,
-          textAlign: 'center',
-          margin: 0,
-          textTransform: 'uppercase',
-          letterSpacing: '-2px',
-        }}
-      >
-        _jayawijaya
-      </h1>
-      <p style={{ textAlign: 'center', maxWidth: '400px', fontSize: '16px' }}>
-        A modular quiz app with practice/exam modes, multiple choice & text answers, and private account sync
-      </p>
-      <p>by <a className=" font-bold underline" href="https://www.linkedin.com/in/arkandhiya-ibrahim-dewantara-576059235/">ark</a>, <a href="https://jambee.games" className=' italic'>Jambee</a> cofounder</p>
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch', justifyContent: 'center', flexDirection: "column" }}>
-        <button
-          onClick={() => navigate('/start')}
-          className="neu-btn neu-btn-primary"
-          style={{ fontSize: '24px', padding: '16px 48px'}}
-        >
-          START
-        </button>
-        <button
-          onClick={() => navigate('/how-to-create-modules')}
-          className="neu-btn neu-btn-secondary"
-          style={{ fontSize: '14px', padding: '10px 30px', width:'100%', alignSelf: 'center', maxWidth: '200px', textAlign: 'center', lineHeight: 1.2 }}
-        >
-          How to create<br />modules?
-        </button>
-      </div>
-      <InstallPrompt />
-    </div>
-  );
+  const navigate = useNavigate()
+  return <main className="relative flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
+    <div className="absolute right-4 top-4"><ThemeToggle /></div>
+    <div className="space-y-3"><h1 className="text-5xl font-black tracking-tighter sm:text-7xl">_jayawijaya</h1><p className="mx-auto max-w-md text-muted-foreground">A modular quiz app with practice and exam modes, multiple-choice and text answers, and local persistence.</p></div>
+    <p className="text-sm text-muted-foreground">by <a className="font-semibold underline underline-offset-4" href="https://www.linkedin.com/in/arkandhiya-ibrahim-dewantara-576059235/">ark</a>, <a href="https://jambee.games" className="italic underline underline-offset-4">Jambee</a> cofounder</p>
+    <div className="flex w-full max-w-xs flex-col gap-3"><Button size="lg" onClick={() => navigate('/start')}><Play /> Start</Button><Button variant="outline" onClick={() => navigate('/how-to-create-modules')}><BookOpen /> How to create modules?</Button></div>
+    <InstallPrompt />
+  </main>
 }

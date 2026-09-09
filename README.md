@@ -225,3 +225,11 @@ Upload test modules from `test_modules/`:
 ## License
 
 MIT
+
+## UI development
+
+The frontend uses shadcn/ui's New York style with Tailwind CSS v4. Reusable primitives live in `src/components/ui`; application compositions live directly under `src/components`. Prefer semantic theme tokens, component variants, and Tailwind utilities.
+
+Themes support light, dark, and system modes and persist under `jayawijaya-theme`.
+
+Run `bun run check:ui` alongside the lint, build, unit, integration, and browser checks when changing the interface.

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Module } from '../types/quiz';
 import { ModuleUploadModal } from './ModuleUploadModal';
+import { Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ModuleUploaderProps {
   onUpload: (modules: Module[]) => void | Promise<void>;
@@ -18,9 +20,7 @@ export function ModuleUploader({ onUpload, existingModules }: ModuleUploaderProp
 
   return (
     <>
-      <button onClick={handleOpen} className="neu-btn neu-btn-secondary">
-        Upload Modules
-      </button>
+      <Button variant="outline" onClick={handleOpen}><Upload /> Upload modules</Button>
       <ModuleUploadModal
         key={modalKey}
         open={modalOpen}
