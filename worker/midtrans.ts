@@ -39,6 +39,7 @@ export interface ExpectedPayment {
 export interface PaymentProvider {
   createTransaction(input: { orderId: string; amount: number; customer: { name: string; email: string } }): Promise<{ token: string; redirectUrl: string }>;
   getStatus(orderId: string): Promise<MidtransStatusPayload>;
+  cancel(orderId: string): Promise<MidtransStatusPayload>;
 }
 
 export class PaymentError extends Error {
@@ -93,6 +94,7 @@ export function createMidtransProvider(env: Env): PaymentProvider {
       return { token: result.token, redirectUrl: result.redirect_url };
     },
     getStatus: orderId => midtransRequest<MidtransStatusPayload>(`${apiBase}/v2/${encodeURIComponent(orderId)}/status`, env),
+    cancel: orderId => midtransRequest<MidtransStatusPayload>(`${apiBase}/v2/${encodeURIComponent(orderId)}/cancel`, env, { method: 'POST' }),
   };
 }
 
