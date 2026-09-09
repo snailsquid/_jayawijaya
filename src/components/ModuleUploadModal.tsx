@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback } from 'react';
-import { load } from 'js-yaml';
+import { JSON_SCHEMA, load } from 'js-yaml';
 import type { Module } from '../types/quiz';
-import { parseModule, computeFileHash } from '../lib/parser';
+import { parseModule, computeFileHash, MAX_MODULE_UPLOAD_BYTES } from '../lib/parser';
 
 interface ModuleUploadModalProps {
   open: boolean;
   onClose: () => void;
-  onUpload: (modules: Module[]) => void;
+  onUpload: (modules: Module[]) => void | Promise<void>;
   existingModules: Module[];
 }
 
@@ -20,9 +20,15 @@ function validateYAML(content: string): { valid: true; module: YAMLModule } | { 
   if (!content.trim()) {
     return { valid: false, error: 'No content provided.' };
   }
+  if (new TextEncoder().encode(content).byteLength > MAX_MODULE_UPLOAD_BYTES) {
+    return { valid: false, error: 'Module exceeds the 2 MB upload limit.' };
+  }
+  if (/(^|\s)[&*][A-Za-z0-9_-]+/.test(content)) {
+    return { valid: false, error: 'YAML anchors and aliases are not supported.' };
+  }
   let parsed: unknown;
   try {
-    parsed = load(content);
+    parsed = load(content, { schema: JSON_SCHEMA });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { valid: false, error: `YAML parse error: ${msg}` };
@@ -115,7 +121,7 @@ export function ModuleUploadModal({ open, onClose, onUpload, existingModules }: 
         return;
       }
 
-      onUpload([module]);
+      await onUpload([module]);
       onClose();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

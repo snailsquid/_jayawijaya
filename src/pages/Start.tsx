@@ -1,16 +1,19 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useModules } from '../hooks/useModules';
 import { calculateAllocation } from '../hooks/useQuiz';
 import type { Module, QuizConfig } from '../types/quiz';
 import { ModeSelector } from '../components/ModeSelector';
 import { ModuleUploader } from '../components/ModuleUploader';
 import { ModuleList } from '../components/ModuleList';
+import { authClient, type AppUser } from '../lib/auth-client';
+import { ApiError } from '../lib/api';
 
-export function Start() {
+export function Start({ user }: { user: AppUser }) {
   const navigate = useNavigate();
-  const [modules, setModules] = useLocalStorage<Module[]>('jayawijaya-modules', []);
-  const [config, setConfig] = useLocalStorage<QuizConfig>('jayawijaya-config', {
+  const { modules, usage, loading, error: modulesError, addModules, updateModule, deleteModule } = useModules();
+  const [config, setConfig] = useLocalStorage<QuizConfig>(`jayawijaya-config:${user.id}`, {
     selectedModuleIds: [],
     mode: 'practice',
     randomize: false,
@@ -25,6 +28,13 @@ export function Start() {
   const [assignCategory, setAssignCategory] = useState('');
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [mutationError, setMutationError] = useState('');
+  const [legacyModules, setLegacyModules] = useState<Module[]>(() => {
+    try { return JSON.parse(localStorage.getItem('jayawijaya-modules') ?? '[]'); } catch { return []; }
+  });
+  const displayedLimits = user.tier === 'pro'
+    ? { modules: 1_000, storageMb: 500 }
+    : { modules: 100, storageMb: 25 };
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -45,9 +55,38 @@ export function Start() {
 
 
 
-  const handleUpload = useCallback((newModules: Module[]) => {
-    setModules(prev => [...prev, ...newModules]);
-  }, [setModules]);
+  const handleUpload = useCallback(async (newModules: Module[]) => {
+    setMutationError('');
+    try { await addModules(newModules); }
+    catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'Upload failed.';
+      setMutationError(message);
+      throw reason;
+    }
+  }, [addModules]);
+
+  const handleLegacyImport = useCallback(async () => {
+    const remaining: Module[] = [];
+    let imported = 0;
+    for (const module of legacyModules) {
+      try {
+        await addModules([module]);
+        imported += 1;
+      } catch (reason) {
+        if (reason instanceof ApiError && reason.code === 'DUPLICATE_MODULE') {
+          imported += 1;
+        } else {
+          remaining.push(module);
+        }
+      }
+    }
+    setLegacyModules(remaining);
+    if (remaining.length === 0) localStorage.removeItem('jayawijaya-modules');
+    else localStorage.setItem('jayawijaya-modules', JSON.stringify(remaining));
+    setMutationError(remaining.length > 0
+      ? `${imported} imported; ${remaining.length} could not be imported and remain on this device.`
+      : '');
+  }, [addModules, legacyModules]);
 
   const handleToggleModule = useCallback((moduleId: string) => {
     setConfig(prev => ({
@@ -71,12 +110,12 @@ export function Start() {
   }, []);
 
   const handleDeleteModule = useCallback((moduleId: string) => {
-    setModules(prev => prev.filter(m => m.id !== moduleId));
+    void deleteModule(moduleId).catch(reason => setMutationError(reason instanceof Error ? reason.message : 'Delete failed.'));
     setConfig(prev => ({
       ...prev,
       selectedModuleIds: prev.selectedModuleIds.filter(id => id !== moduleId)
     }));
-  }, [setModules, setConfig]);
+  }, [deleteModule, setConfig]);
 
   const handleToggleCollapse = useCallback((key: string) => {
     setCollapsedCategories(prev => {
@@ -101,23 +140,18 @@ export function Start() {
     const finalCategory = assignCategory.startsWith('__new__:')
       ? assignCategory.slice(7)
       : assignCategory;
-    setConfig(prev => {
-      const newModules = modules.map(m => {
-        if (prev.selectedModuleIds.includes(m.id)) {
-          return { ...m, categoryId: finalCategory };
-        }
-        return m;
-      });
-      setModules(newModules);
-      return { ...prev, selectedModuleIds: [] };
-    });
+    const selected = config.selectedModuleIds;
+    void Promise.all(selected.map(id => updateModule(id, { categoryId: finalCategory })))
+      .catch(reason => setMutationError(reason instanceof Error ? reason.message : 'Category update failed.'));
+    setConfig(prev => ({ ...prev, selectedModuleIds: [] }));
     setAssignCategory('');
-  }, [assignCategory, setConfig, modules, setModules]);
+  }, [assignCategory, config.selectedModuleIds, setConfig, updateModule]);
 
   const handleMassDelete = useCallback(() => {
-    setModules(prev => prev.filter(m => !config.selectedModuleIds.includes(m.id)));
+    void Promise.all(config.selectedModuleIds.map(deleteModule))
+      .catch(reason => setMutationError(reason instanceof Error ? reason.message : 'Delete failed.'));
     setConfig(prev => ({ ...prev, selectedModuleIds: [] }));
-  }, [config.selectedModuleIds, setModules, setConfig]);
+  }, [config.selectedModuleIds, deleteModule, setConfig]);
 
   const handleStart = () => {
     if (config.selectedModuleIds.length === 0) return;
@@ -127,6 +161,7 @@ export function Start() {
       ? config.timerHours * 3600 + config.timerMinutes * 60 + config.timerSeconds
       : 0;
     const runningState = {
+      ownerId: user.id,
       modules: selectedModules,
       mode: config.mode,
       randomize: config.randomize,
@@ -135,7 +170,6 @@ export function Start() {
       timerDuration: totalSeconds,
       timerStart: totalSeconds > 0 ? Date.now() : undefined,
     };
-    sessionStorage.setItem('jayawijaya-running', JSON.stringify(runningState));
     navigate('/running', { state: runningState });
   };
 
@@ -248,7 +282,12 @@ export function Start() {
       <div className="neu-box" style={{ padding: '24px', overflow: 'hidden', width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ fontWeight: 700 }}>Modules</h2>
-          <ModuleUploader onUpload={handleUpload} existingModules={modules} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>
+              {usage.moduleCount}/{displayedLimits.modules} · {(usage.usedBytes / 1024 / 1024).toFixed(1)}/{displayedLimits.storageMb} MB
+            </span>
+            <ModuleUploader onUpload={handleUpload} existingModules={modules} />
+          </div>
         </div>
 
         <input
@@ -260,7 +299,16 @@ export function Start() {
           style={{ width: '100%', marginBottom: '16px' }}
         />
         
-        {modules.length === 0 ? (
+        {(modulesError || mutationError) && <p role="alert" style={{ color: '#b00020', fontWeight: 700 }}>{modulesError || mutationError}</p>}
+        {legacyModules.length > 0 && (
+          <div className="neu-box" style={{ padding: 12, marginBottom: 16, background: '#ffd93d' }}>
+            <strong>{legacyModules.length} module(s) found on this device.</strong>{' '}
+            <button className="neu-btn" onClick={() => void handleLegacyImport()}>Import modules</button>
+          </div>
+        )}
+        {loading ? (
+          <p>Loading modules…</p>
+        ) : modules.length === 0 ? (
           <div style={{ textAlign: 'center' }}>
             <p style={{ color: '#666' }}>No modules uploaded yet.</p>
             <p style={{ color: '#666', fontSize: '14px' }}>
@@ -280,6 +328,11 @@ export function Start() {
             onToggleSelectAll={handleToggleSelectAll}
           />
         )}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontWeight: 700 }}>{user.email} · {user.tier ?? 'free'}</span>
+        <button className="neu-btn" onClick={() => void authClient.signOut({ fetchOptions: { onSuccess: () => navigate('/') } })}>Log out</button>
       </div>
 
       <div className="neu-box" style={{ padding: '24px' }}>

@@ -1,5 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { QuizResult, Question, Module } from '../types/quiz';
+import type { RunningState } from '../lib/quiz-snapshot';
+import { removeQuizSnapshot } from '../lib/quiz-snapshot';
 
 interface EndState {
   results: QuizResult;
@@ -7,6 +9,7 @@ interface EndState {
   questions: Question[];
   answers: (number | number[] | string | null)[];
   modules?: Module[];
+  ownerId?: string;
   randomize?: boolean;
   questionLimit?: number;
   distributionMode?: 'equal' | 'proportional';
@@ -71,8 +74,8 @@ export function End() {
 
   const handleRetry = () => {
     if (!modules || modules.length === 0) {
-      sessionStorage.removeItem('jayawijaya-running');
-      sessionStorage.removeItem('jayawijaya-quizstate');
+      if (state.ownerId) removeQuizSnapshot(state.ownerId);
+      sessionStorage.removeItem('jayawijaya-active-owner');
       navigate('/start');
       return;
     }
@@ -82,8 +85,11 @@ export function End() {
     const distributionMode = endState?.distributionMode;
     const timerDuration = endState?.timerDuration;
     const totalSeconds = timerDuration ?? 0;
-    const runningState = { modules, mode, randomize, questionLimit, distributionMode, timerDuration, timerStart: totalSeconds > 0 ? Date.now() : undefined };
-    sessionStorage.setItem('jayawijaya-running', JSON.stringify(runningState));
+    if (!endState.ownerId) {
+      navigate('/start');
+      return;
+    }
+    const runningState: RunningState = { ownerId: endState.ownerId, modules, mode, randomize, questionLimit, distributionMode, timerDuration, timerStart: totalSeconds > 0 ? Date.now() : undefined };
     navigate('/running', { state: runningState });
   };
 

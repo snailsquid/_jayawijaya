@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "jayawijaya-test",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-08-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "jayawijaya-test",
+    "database_id": "00000000-0000-0000-0000-000000000000",
+    "migrations_dir": "migrations"
+  }],
+  "vars": {
+    "BETTER_AUTH_URL": "http://127.0.0.1:5173",
+    "ENVIRONMENT": "test",
+    "GOOGLE_CLIENT_ID": "test-google-id",
+    "GOOGLE_CLIENT_SECRET": "test-google-secret",
+    "BETTER_AUTH_SECRET": "test-secret-that-is-at-least-32-characters"
+  }
+}

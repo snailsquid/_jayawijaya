@@ -1,4 +1,4 @@
-import { load } from 'js-yaml';
+import { JSON_SCHEMA, load } from 'js-yaml';
 import type { Module, Question } from '../types/quiz';
 
 export async function computeFileHash(content: string): Promise<string> {
@@ -7,6 +7,19 @@ export async function computeFileHash(content: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+export const MAX_MODULE_UPLOAD_BYTES = 2 * 1024 * 1024;
+
+function loadModuleYAML(content: string): YAMLModule {
+  if (new TextEncoder().encode(content).byteLength > MAX_MODULE_UPLOAD_BYTES) {
+    throw new Error('Module exceeds the 2 MB upload limit.');
+  }
+  // Aliases can turn a small YAML document into a very large in-memory object.
+  if (/(^|\s)[&*][A-Za-z0-9_-]+/.test(content)) {
+    throw new Error('YAML anchors and aliases are not supported.');
+  }
+  return load(content, { schema: JSON_SCHEMA }) as YAMLModule;
 }
 
 interface YAMLModule {
@@ -42,7 +55,7 @@ function parseQuestions(questions: YAMLQuestion[]): Question[] {
 }
 
 export function parseModule(yamlContent: string, id: string): Module {
-  const parsed = load(yamlContent) as YAMLModule;
+  const parsed = loadModuleYAML(yamlContent);
   return {
     id,
     title: parsed.title,

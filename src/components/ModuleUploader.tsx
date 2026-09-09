@@ -3,7 +3,7 @@ import type { Module } from '../types/quiz';
 import { ModuleUploadModal } from './ModuleUploadModal';
 
 interface ModuleUploaderProps {
-  onUpload: (modules: Module[]) => void;
+  onUpload: (modules: Module[]) => void | Promise<void>;
   existingModules: Module[];
 }
 

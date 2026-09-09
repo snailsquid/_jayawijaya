@@ -1,19 +1,11 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { Module, QuizMode, QuizState, Question } from '../types/quiz';
+import type { QuizState, Question } from '../types/quiz';
 import { useQuiz } from '../hooks/useQuiz';
 import { QuizGrid } from '../components/QuizGrid';
 import { QuestionCard } from '../components/QuestionCard';
-
-interface RunningState {
-  modules: Module[];
-  mode: QuizMode;
-  randomize: boolean;
-  questionLimit?: number;
-  distributionMode?: 'equal' | 'proportional';
-  timerDuration?: number;
-  timerStart?: number;
-}
+import { authClient } from '../lib/auth-client';
+import { loadQuizSnapshot, removeQuizSnapshot, saveQuizSnapshot, type RunningState } from '../lib/quiz-snapshot';
 
 function ConfirmPopup({
   open,
@@ -71,29 +63,21 @@ export function Running() {
   const navigate = useNavigate();
   const location = useLocation();
   const { initializeQuiz, calculateResults, getQuestionState } = useQuiz();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
   
   const locationState = location.state as RunningState | null;
+  const ownerHint = locationState?.ownerId ?? sessionStorage.getItem('jayawijaya-active-owner') ?? '';
+  const initialSnapshot = useMemo(() => ownerHint ? loadQuizSnapshot(ownerHint) : null, [ownerHint]);
   const initialState = useMemo(() => {
     if (locationState?.modules) return locationState;
-    const saved = sessionStorage.getItem('jayawijaya-running');
-    if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
-    }
-    return null;
-  }, [locationState]);
+    return initialSnapshot?.running ?? null;
+  }, [locationState, initialSnapshot]);
 
   const [quizState, setQuizState] = useState<{ questions: Question[]; state: QuizState }>(() => {
     if (!initialState?.modules) {
       return { questions: [], state: {} as QuizState };
     }
-    const savedState = sessionStorage.getItem('jayawijaya-quizstate');
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState);
-        sessionStorage.removeItem('jayawijaya-quizstate');
-        return parsed;
-      } catch { /* ignore */ }
-    }
+    if (initialSnapshot?.quiz) return initialSnapshot.quiz;
     const { questions, state } = initializeQuiz(
       initialState.modules,
       initialState.mode,
@@ -146,14 +130,9 @@ export function Running() {
   }, [timeLeft]);
 
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      sessionStorage.setItem('jayawijaya-quizstate', JSON.stringify(quizState));
-      if (initialState) {
-        sessionStorage.setItem('jayawijaya-running', JSON.stringify(initialState));
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    if (!initialState?.ownerId || !quizState.questions.length) return;
+    sessionStorage.setItem('jayawijaya-active-owner', initialState.ownerId);
+    saveQuizSnapshot({ ownerId: initialState.ownerId, running: initialState, quiz: quizState });
   }, [quizState, initialState]);
 
   const { questions, state } = quizState;
@@ -238,14 +217,21 @@ export function Running() {
     const questionLimit = initialState?.questionLimit;
     const distributionMode = initialState?.distributionMode;
     const timerDuration = initialState?.timerDuration;
-    sessionStorage.removeItem('jayawijaya-running');
-    sessionStorage.removeItem('jayawijaya-quizstate');
-    navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, randomize, questionLimit, distributionMode, timerDuration } });
+    if (initialState?.ownerId) removeQuizSnapshot(initialState.ownerId);
+    sessionStorage.removeItem('jayawijaya-active-owner');
+    navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, ownerId: initialState?.ownerId, randomize, questionLimit, distributionMode, timerDuration } });
   }, [calculateResults, questions, state.answers, navigate, mode, initialState]);
 
   useEffect(() => {
     confirmFinishRef.current = confirmFinish;
   });
+
+  const authenticatedUserId = session?.user?.id;
+  const accountMismatch = Boolean(authenticatedUserId && initialState?.ownerId && authenticatedUserId !== initialState.ownerId);
+
+  if (accountMismatch) {
+    return <div style={{ padding: 24 }}><p>This quiz belongs to another account.</p><button className="neu-btn" onClick={() => navigate('/start')}>Go to my modules</button></div>;
+  }
 
   if (!currentQuestion) {
     return (
@@ -278,8 +264,19 @@ export function Running() {
         width: '1200px'
     }}>
 
+      {!sessionPending && !session?.user && initialState?.ownerId && (
+        <div role="status" className="neu-box" style={{ padding: 12, background: '#ffd93d' }}>
+          Your quiz is safe on this device. Sign in again to sync account data.{' '}
+          <button className="neu-btn" onClick={() => void authClient.signIn.social({ provider: 'google', callbackURL: '/running' })}>Sign in again</button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button onClick={() => { sessionStorage.removeItem('jayawijaya-running'); sessionStorage.removeItem('jayawijaya-quizstate'); navigate('/start'); }} className="neu-btn">
+        <button onClick={() => {
+          if (initialState?.ownerId) removeQuizSnapshot(initialState.ownerId);
+          sessionStorage.removeItem('jayawijaya-active-owner');
+          navigate('/start');
+        }} className="neu-btn">
           ← Exit
         </button>
         <div style={{ fontWeight: 700, fontSize: '18px' }}>
