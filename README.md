@@ -1,10 +1,10 @@
-# Jayawijaya - Local Quiz Application
+# Jayawijaya - Account-Synced Quiz Application
 
-A modular questionnaire/quiz application built with React, Vite, and Bun. Supports multiple choice, text answer questions with practice and exam modes, persisted via localStorage.
+A modular questionnaire/quiz application built with React, Vite, Cloudflare Workers, D1, and Better Auth. Google accounts own private module collections; active quizzes survive session expiry in account-scoped browser storage.
 
 ## Live Demo
 
-**URL**: https://snailsquid.github.io/_jayawijaya/
+Deploy the Worker to a Cloudflare-managed hostname or custom domain by following the deployment section below.
 
 ## Features
 
@@ -32,7 +32,7 @@ A modular questionnaire/quiz application built with React, Vite, and Bun. Suppor
 - Question grid for quick jumping
 - Question states: unseen, unanswered, answered, flagged
 - Flag questions for review
-- Auto-save answers (persists even after page refresh)
+- Account-scoped auto-save (persists after refresh and passive session expiry)
 - Confirmation popup before finishing
 
 ## Installation
@@ -41,14 +41,20 @@ A modular questionnaire/quiz application built with React, Vite, and Bun. Suppor
 # Install dependencies
 bun install
 
+# Apply the local D1 schema first
+bun run db:migrate:local
+
 # Start development server
 bun run dev
 
 # Build for production
 bun run build
 
-# Deploy to GitHub Pages
-bun run deploy
+# Run all non-browser tests
+bun test
+
+# Run browser tests
+bun run test:e2e
 ```
 
 ## YAML Module Format
@@ -145,9 +151,10 @@ _jayawijaya/
 ## Technical Details
 
 ### State Management
-- **localStorage Keys**:
-  - `jayawijaya-modules`: Uploaded quiz modules
-  - `jayawijaya-config`: Quiz configuration (mode, selected modules, randomize)
+- D1 stores Better Auth identities, sessions, roles, tiers, and account-owned modules.
+- `jayawijaya-config:<user-id>` stores per-account quiz preferences locally.
+- `jayawijaya-running:<user-id>` stores an unfinished quiz in the current browser tab.
+- The legacy `jayawijaya-modules` key is offered as a one-time authenticated import.
 
 ### Router
 - Uses `HashRouter` for GitHub Pages compatibility
@@ -164,20 +171,39 @@ _jayawijaya/
 - Custom CSS with Tailwind CSS
 - Responsive layout (desktop/mobile)
 
-## Deployment
+## Authentication and Cloudflare Deployment
 
-### GitHub Pages
-1. Set `base` in `vite.config.ts` to `/<repo-name>/`
-2. Use `HashRouter` in `App.tsx`
-3. Build and deploy to `gh-pages` branch:
+1. Create a D1 database and replace `database_id` in `wrangler.jsonc`.
+2. In Google Cloud Console, create an OAuth web client. Add
+   `https://YOUR_HOST/api/auth/callback/google` as an authorized redirect URI.
+3. Set `BETTER_AUTH_URL` in `wrangler.jsonc` to the exact public origin.
+4. Store secrets in Cloudflare; do not add them to `wrangler.jsonc`:
 
 ```bash
-bun run build
-npx gh-pages -d dist -b gh-pages
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+wrangler secret put BETTER_AUTH_SECRET
 ```
 
-### Custom Domain
-Configure in GitHub repository Settings → Pages
+5. Generate `BETTER_AUTH_SECRET` with at least 32 random characters.
+6. Apply the schema and deploy:
+
+```bash
+wrangler d1 migrations apply jayawijaya --remote
+bun run build
+wrangler deploy
+```
+
+For local Google OAuth, create an ignored `.dev.vars` containing the same three secrets plus `BETTER_AUTH_URL=http://localhost:5173`, and add `http://localhost:5173/api/auth/callback/google` to the Google client.
+
+## Verification
+
+- `bun run lint` checks source and test code.
+- `bun run build` type-checks and builds the Worker plus SPA.
+- `bun run test:coverage` runs unit tests with 80% line/function/statement and 75% branch gates.
+- `bun run test:integration` runs the Worker against isolated, migrated local D1 databases.
+- `bun run test:e2e` runs account/module and session-expiry flows in Chromium without Google secrets.
+- Before production releases, manually verify Google consent, callback, persistence, logout, same-account reauthentication, and two-account module isolation on a staging hostname.
 
 ## Development
 
@@ -199,18 +225,11 @@ Upload test modules from `test_modules/`:
 ## License
 
 MIT
-# UI development
 
-The frontend uses shadcn/ui's New York style with Tailwind CSS v4. Reusable primitives live in `src/components/ui`; application compositions live directly under `src/components`. Add primitives with `bunx shadcn@latest add <component>`. Prefer semantic theme tokens and component variants over raw colors, and Tailwind utilities over inline presentation styles.
+## UI development
+
+The frontend uses shadcn/ui's New York style with Tailwind CSS v4. Reusable primitives live in `src/components/ui`; application compositions live directly under `src/components`. Prefer semantic theme tokens, component variants, and Tailwind utilities.
 
 Themes support light, dark, and system modes and persist under `jayawijaya-theme`.
 
-Validation commands:
-
-```bash
-bun run lint
-bun run build
-bun run test
-bun run test:e2e
-bun run check:ui
-```
+Run `bun run check:ui` alongside the lint, build, unit, integration, and browser checks when changing the interface.

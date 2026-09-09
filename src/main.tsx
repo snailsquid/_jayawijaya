@@ -6,7 +6,7 @@ import App from './App.tsx'
 import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
-registerSW({ immediate: true })
+if (import.meta.env.MODE !== 'test') registerSW({ immediate: true })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

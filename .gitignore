@@ -13,6 +13,11 @@ dist-ssr
 playwright-report
 test-results
 *.local
+.dev.vars
+.wrangler/
+coverage/
+playwright-report/
+test-results/
 
 # Editor directories and files
 .vscode/*

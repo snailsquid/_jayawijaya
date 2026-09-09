@@ -5,7 +5,7 @@ import { Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ModuleUploaderProps {
-  onUpload: (modules: Module[]) => void;
+  onUpload: (modules: Module[]) => void | Promise<void>;
   existingModules: Module[];
 }
 
