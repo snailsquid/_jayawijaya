@@ -28,4 +28,10 @@ export const modulesApi = {
   create: (module: Module) => request<{ module: Module }>('/api/modules', { method: 'POST', body: JSON.stringify(module) }),
   update: (id: string, patch: Partial<Module>) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   remove: (id: string) => request<void>(`/api/modules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  setSharing: (id: string, enabled: boolean) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}/share`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+  publish: (id: string, module: Module) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}/publish`, { method: 'POST', body: JSON.stringify(module) }),
+  resolveShare: (token: string) => request<{ module: Module }>(`/api/modules/shared/${encodeURIComponent(token)}`),
+  subscribe: (token: string) => request<{ module: Module }>(`/api/modules/shared/${encodeURIComponent(token)}/subscribe`, { method: 'POST' }),
+  sync: (id: string) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}/sync`, { method: 'POST' }),
+  syncAll: () => request<{ modules: Module[]; updated: number }>('/api/modules/sync', { method: 'POST' }),
 };

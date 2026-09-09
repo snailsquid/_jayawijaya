@@ -65,5 +65,28 @@ export function useModules() {
     });
   }, []);
 
-  return { modules, usage, loading, error, addModules, updateModule, deleteModule, reload };
+  const setSharing = useCallback(async (id: string, enabled: boolean) => {
+    const { module } = await modulesApi.setSharing(id, enabled);
+    setModules(previous => previous.map(item => item.id === id ? module : item));
+    return module;
+  }, []);
+
+  const publishModule = useCallback(async (id: string, replacement: Module) => {
+    const { module } = await modulesApi.publish(id, replacement);
+    setModules(previous => previous.map(item => item.id === id ? module : item));
+    return module;
+  }, []);
+
+  const syncModule = useCallback(async (id: string) => {
+    const { module } = await modulesApi.sync(id);
+    setModules(previous => previous.map(item => item.id === id ? module : item));
+  }, []);
+
+  const syncAll = useCallback(async () => {
+    const response = await modulesApi.syncAll();
+    setModules(response.modules);
+    return response.updated;
+  }, []);
+
+  return { modules, usage, loading, error, addModules, updateModule, deleteModule, setSharing, publishModule, syncModule, syncAll, reload };
 }

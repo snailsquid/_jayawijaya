@@ -5,6 +5,7 @@ import { Running } from './pages/Running';
 import { End } from './pages/End';
 import { HowToModules } from './pages/HowToModules';
 import { AuthGate } from './components/AuthGate';
+import { SharedModule } from './pages/SharedModule';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/running" element={<Running />} />
         <Route path="/end" element={<End />} />
         <Route path="/how-to-create-modules" element={<HowToModules />} />
+        <Route path="/shared/:token" element={<AuthGate>{() => <SharedModule />}</AuthGate>} />
       </Routes>
     </BrowserRouter>
   );

@@ -26,10 +26,15 @@ const moduleBody = {
 const moduleBytes = (body: typeof moduleBody) => new TextEncoder().encode(JSON.stringify(body.questions)).byteLength;
 
 async function insertModule(ownerId: string, id: string, hash: string, byteSize: number, questions = moduleBody.questions) {
-  await env.DB.prepare(`INSERT INTO modules
+  await env.DB.batch([env.DB.prepare(`INSERT INTO modules
     (id, owner_id, title, content_hash, questions_json, byte_size, question_count, created_at, updated_at)
     VALUES (?, ?, 'Seed', ?, ?, ?, 1, 'now', 'now')`)
-    .bind(id, ownerId, hash, JSON.stringify(questions), byteSize).run();
+    .bind(id, ownerId, hash, JSON.stringify(questions), byteSize),
+  env.DB.prepare(`INSERT INTO module_versions
+    (module_id,version,title,content_hash,questions_json,byte_size,question_count,created_at)
+    VALUES (?,1,'Seed',?,?,?,1,'now')`).bind(id, hash, JSON.stringify(questions), byteSize),
+  env.DB.prepare(`INSERT INTO module_library
+    (user_id,module_id,current_version,subscribed,created_at,updated_at) VALUES (?,?,1,0,'now','now')`).bind(ownerId, id)]);
 }
 
 async function api(path: string, cookie?: string, init: RequestInit = {}) {
@@ -88,10 +93,7 @@ describe('account-owned module API', () => {
   it('enforces the free module count quota', async () => {
     const alice = await signUp('alice');
     const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'alice@example.test'").first<{ id: string }>();
-    const statement = env.DB.prepare(`INSERT INTO modules
-      (id, owner_id, title, content_hash, questions_json, byte_size, question_count, created_at, updated_at)
-      VALUES (?, ?, 'Seed', ?, '[]', 2, 1, 'now', 'now')`);
-    await env.DB.batch(Array.from({ length: 100 }, (_, index) => statement.bind(`seed-${index}`, user!.id, `hash-${index}`)));
+    await Promise.all(Array.from({ length: 100 }, (_, index) => insertModule(user!.id, `seed-${index}`, `hash-${index}`, 2, [])));
     const response = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify(moduleBody) });
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ error: { code: 'MODULE_QUOTA_REACHED' } });
@@ -185,5 +187,75 @@ describe('account-owned module API', () => {
     const limited = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify({ ...moduleBody, hash: 'new' }) });
     expect(limited.status).toBe(429);
     expect(await limited.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+  });
+
+  it('shares an unlisted module, keeps categories account-local, and synchronizes immutable versions', async () => {
+    const alice = await signUp('live-alice');
+    const bob = await signUp('live-bob');
+    const created = await api('/api/modules', alice, {
+      method: 'POST', body: JSON.stringify({ ...moduleBody, visibility: 'live' }),
+    });
+    expect(created.status).toBe(201);
+    const original = (await created.json() as { module: { id: string; shareToken: string; currentVersion: number } }).module;
+    expect(original.shareToken).toHaveLength(32);
+    expect((await api(`/api/modules/shared/${original.shareToken}`, bob)).status).toBe(200);
+    expect((await api(`/api/modules/shared/${original.shareToken}/subscribe`, bob, { method: 'POST' })).status).toBe(201);
+
+    await api(`/api/modules/${original.id}`, bob, { method: 'PATCH', body: JSON.stringify({ categoryId: 'Bob category' }) });
+    const aliceList = await api('/api/modules', alice);
+    const bobList = await api('/api/modules', bob);
+    expect((await aliceList.json() as { modules: Array<{ categoryId?: string }> }).modules[0].categoryId).toBeUndefined();
+    expect((await bobList.json() as { modules: Array<{ categoryId?: string }> }).modules[0].categoryId).toBe('Bob category');
+
+    const revised = { ...moduleBody, hash: 'hash-v2', questions: [{ ...moduleBody.questions[0], question: 'Updated question?' }] };
+    const published = await api(`/api/modules/${original.id}/publish`, alice, { method: 'POST', body: JSON.stringify(revised) });
+    expect((await published.json() as { module: { currentVersion: number } }).module.currentVersion).toBe(2);
+    const synced = await api('/api/modules', bob);
+    const subscriber = (await synced.json() as { modules: Array<{ currentVersion: number; questions: Array<{ question: string }> }> }).modules[0];
+    expect(subscriber.currentVersion).toBe(2);
+    expect(subscriber.questions[0].question).toBe('Updated question?');
+  });
+
+  it('freezes subscribers when sharing stops and rotates the token when re-enabled', async () => {
+    const alice = await signUp('freeze-alice');
+    const bob = await signUp('freeze-bob');
+    const created = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify({ ...moduleBody, visibility: 'live' }) });
+    const live = (await created.json() as { module: { id: string; shareToken: string } }).module;
+    await api(`/api/modules/shared/${live.shareToken}/subscribe`, bob, { method: 'POST' });
+    const disabled = await api(`/api/modules/${live.id}/share`, alice, { method: 'POST', body: JSON.stringify({ enabled: false }) });
+    expect(disabled.status).toBe(200);
+    expect((await api(`/api/modules/shared/${live.shareToken}`, bob)).status).toBe(404);
+    const frozen = await api('/api/modules', bob);
+    expect((await frozen.json() as { modules: Array<{ frozen: boolean; currentVersion: number }> }).modules[0]).toMatchObject({ frozen: true, currentVersion: 1 });
+
+    const enabled = await api(`/api/modules/${live.id}/share`, alice, { method: 'POST', body: JSON.stringify({ enabled: true }) });
+    const nextToken = (await enabled.json() as { module: { shareToken: string } }).module.shareToken;
+    expect(nextToken).not.toBe(live.shareToken);
+  });
+
+  it('keeps a frozen subscriber copy after the owner deletes the source', async () => {
+    const alice = await signUp('delete-alice');
+    const bob = await signUp('delete-bob');
+    const created = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify({ ...moduleBody, visibility: 'live' }) });
+    const live = (await created.json() as { module: { id: string; shareToken: string } }).module;
+    await api(`/api/modules/shared/${live.shareToken}/subscribe`, bob, { method: 'POST' });
+    expect((await api(`/api/modules/${live.id}`, alice, { method: 'DELETE' })).status).toBe(204);
+    const frozen = await api('/api/modules', bob);
+    expect((await frozen.json() as { modules: Array<{ id: string; frozen: boolean }> }).modules[0]).toMatchObject({ id: live.id, frozen: true });
+    expect((await api(`/api/modules/${live.id}`, bob, { method: 'DELETE' })).status).toBe(204);
+  });
+
+  it('atomically enforces subscriber module-count quota', async () => {
+    const owner = await signUp('subscription-owner');
+    const subscriber = await signUp('subscription-user');
+    const subscriberRow = await env.DB.prepare("SELECT id FROM user WHERE email = 'subscription-user@example.test'").first<{ id: string }>();
+    await Promise.all(Array.from({ length: 99 }, (_, index) => insertModule(subscriberRow!.id, `subscriber-seed-${index}`, `subscriber-hash-${index}`, 2, [])));
+    const shared = [];
+    for (const hash of ['subscription-live-a', 'subscription-live-b']) {
+      const response = await api('/api/modules', owner, { method: 'POST', body: JSON.stringify({ ...moduleBody, hash, visibility: 'live' }) });
+      shared.push((await response.json() as { module: { shareToken: string } }).module.shareToken);
+    }
+    const responses = await Promise.all(shared.map(token => api(`/api/modules/shared/${token}/subscribe`, subscriber, { method: 'POST' })));
+    expect(responses.map(response => response.status).sort()).toEqual([201, 409]);
   });
 });

@@ -41,4 +41,12 @@ describe('quiz snapshots', () => {
     expect(loadQuizSnapshot('alice')).toBeNull();
     expect(loadQuizSnapshot('bob')).toEqual(bobSnapshot);
   });
+
+  it('serializes question content so later live-module mutations cannot alter a running quiz', () => {
+    const live = { ...snapshot, running: { ...snapshot.running, modules: [{ id: 'live', title: 'Live', currentVersion: 1, questions: [{ question: 'Original?', correct_answer: 1 }] }] } };
+    saveQuizSnapshot(live);
+    live.running.modules[0].questions[0].question = 'Published later?';
+    expect(loadQuizSnapshot('alice')?.running.modules[0].questions[0].question).toBe('Original?');
+    expect(loadQuizSnapshot('alice')?.running.modules[0].currentVersion).toBe(1);
+  });
 });

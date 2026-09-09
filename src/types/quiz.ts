@@ -21,6 +21,14 @@ export interface Module {
   questions: Question[];
   categoryId?: string;
   hash?: string;
+  ownerId?: string;
+  isOwner?: boolean;
+  visibility?: 'private' | 'live';
+  shareToken?: string;
+  subscribed?: boolean;
+  frozen?: boolean;
+  currentVersion?: number;
+  latestVersion?: number;
 }
 
 export interface Category {
