@@ -5,6 +5,7 @@ import { Running } from './pages/Running';
 import { End } from './pages/End';
 import { HowToModules } from './pages/HowToModules';
 import { AuthGate } from './components/AuthGate';
+import { Pricing } from './pages/Pricing';
 import { SharedModule } from './pages/SharedModule';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <Route path="/running" element={<Running />} />
         <Route path="/end" element={<End />} />
         <Route path="/how-to-create-modules" element={<HowToModules />} />
+        <Route path="/pricing" element={<AuthGate callbackURL="/pricing">{user => <Pricing key={user.id} />}</AuthGate>} />
         <Route path="/shared/:token" element={<AuthGate>{() => <SharedModule />}</AuthGate>} />
       </Routes>
     </BrowserRouter>

@@ -4,7 +4,7 @@ import { PageShell } from './app-shell';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader } from './ui/card';
 
-export function AuthGate({ children }: { children: (user: AppUser) => ReactNode }) {
+export function AuthGate({ children, callbackURL = '/start' }: { children: (user: AppUser) => ReactNode; callbackURL?: string }) {
   const { data, isPending } = authClient.useSession();
 
   if (isPending) return <main className="grid min-h-screen place-items-center p-6 font-semibold">Loading account…</main>;
@@ -13,7 +13,7 @@ export function AuthGate({ children }: { children: (user: AppUser) => ReactNode 
       <PageShell className="grid min-h-screen max-w-md place-items-center">
         <Card className="w-full text-center">
           <CardHeader><h1 className="text-xl font-semibold">Sign in</h1><CardDescription>Your modules are private and linked to your Google account.</CardDescription></CardHeader>
-          <CardContent><Button className="w-full" onClick={() => void authClient.signIn.social({ provider: 'google', callbackURL: '/start' })}>Continue with Google</Button></CardContent>
+          <CardContent><Button className="w-full" onClick={() => void authClient.signIn.social({ provider: 'google', callbackURL })}>Continue with Google</Button></CardContent>
         </Card>
       </PageShell>
     );

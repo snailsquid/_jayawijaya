@@ -6,7 +6,10 @@ export function createAuth(env: Env) {
     database: env.DB,
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
-    trustedOrigins: [env.BETTER_AUTH_URL],
+    trustedOrigins: [
+      env.BETTER_AUTH_URL,
+      ...(env.ENVIRONMENT === 'test' ? ['http://localhost:5173', 'http://127.0.0.1:5173'] : []),
+    ],
     session: {
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,

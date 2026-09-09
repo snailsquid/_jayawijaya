@@ -17,12 +17,35 @@ export default defineConfig({
         BETTER_AUTH_SECRET: 'test-secret-that-is-at-least-32-characters',
         GOOGLE_CLIENT_ID: 'test-google-id',
         GOOGLE_CLIENT_SECRET: 'test-google-secret',
+        MIDTRANS_SERVER_KEY: 'test-midtrans-server-key',
+        MIDTRANS_CLIENT_KEY: 'test-midtrans-client-key',
+        MIDTRANS_IS_PRODUCTION: 'false',
         TEST_MIGRATIONS: migrations,
       },
       serviceBindings: {
         ASSETS: () => new Response('asset'),
+        MIDTRANS: (request: Request) => {
+          const url = new URL(request.url);
+          if (url.pathname === '/snap/v1/transactions' && request.method === 'POST') {
+            return Response.json({ token: 'snap-token', redirect_url: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token' }, { status: 201 });
+          }
+          const statusMatch = url.pathname.match(/^\/v2\/([^/]+)\/status$/);
+          if (statusMatch && request.method === 'GET') {
+            return Response.json({
+              order_id: decodeURIComponent(statusMatch[1]),
+              status_code: '200',
+              gross_amount: '15000.00',
+              currency: 'IDR',
+              transaction_status: 'settlement',
+              transaction_id: 'midtrans-transaction',
+              payment_type: 'qris',
+              fraud_status: 'accept',
+            });
+          }
+          return Response.json({ status_message: 'Unmocked Midtrans request' }, { status: 500 });
+        },
       },
     },
   })],
-  test: { include: ['tests/integration/**/*.test.ts'] },
+  test: { include: ['tests/integration/**/*.test.ts'], fileParallelism: false },
 });

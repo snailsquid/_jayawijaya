@@ -1,4 +1,5 @@
 import type { Module } from '../types/quiz';
+import type { MidtransClientConfig, Payment, PaymentProduct } from '../types/payment';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -34,4 +35,12 @@ export const modulesApi = {
   subscribe: (token: string) => request<{ module: Module }>(`/api/modules/shared/${encodeURIComponent(token)}/subscribe`, { method: 'POST' }),
   sync: (id: string) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}/sync`, { method: 'POST' }),
   syncAll: () => request<{ modules: Module[]; updated: number }>('/api/modules/sync', { method: 'POST' }),
+};
+
+export const paymentsApi = {
+  list: () => request<{ payments: Payment[]; product: PaymentProduct; config: MidtransClientConfig }>('/api/payments'),
+  create: (productCode: string) => request<{ payment: Payment; config: MidtransClientConfig }>('/api/payments', {
+    method: 'POST', body: JSON.stringify({ productCode }),
+  }),
+  get: (orderId: string) => request<{ payment: Payment }>(`/api/payments/${encodeURIComponent(orderId)}`),
 };
