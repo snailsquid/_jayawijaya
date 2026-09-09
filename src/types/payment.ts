@@ -31,3 +31,9 @@ export interface MidtransClientConfig {
   clientKey: string;
   snapJsUrl: string;
 }
+
+export interface SubscriptionSummary {
+  active: boolean;
+  expiresAt: Date | null;
+  daysRemaining: number;
+}

@@ -1,4 +1,4 @@
-import { JSON_SCHEMA, load } from 'js-yaml';
+import { JSON_SCHEMA, dump, load } from 'js-yaml';
 import type { Module, Question } from '../types/quiz';
 
 export async function computeFileHash(content: string): Promise<string> {
@@ -62,6 +62,14 @@ export function parseModule(yamlContent: string, id: string): Module {
     description: parsed.description,
     questions: parseQuestions(parsed.questions),
   };
+}
+
+export function moduleToYAML(module: Module): string {
+  return dump({
+    title: module.title,
+    ...(module.description ? { description: module.description } : {}),
+    questions: module.questions,
+  }, { noRefs: true, lineWidth: 100 });
 }
 
 export async function parseModules(files: File[]): Promise<Module[]> {

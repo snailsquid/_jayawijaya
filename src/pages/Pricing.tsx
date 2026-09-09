@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, CreditCard, RefreshCw, XCircle } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CheckCircle2, CreditCard, RefreshCw, Sparkles, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { PageHeader, PageShell } from '@/components/app-shell';
 import { paymentsApi } from '@/lib/api';
 import { loadSnap } from '@/lib/snap';
+import { getSubscriptionSummary } from '@/lib/subscription';
+import type { AppUser } from '@/lib/auth-client';
 import type { MidtransClientConfig, Payment, PaymentProduct, PaymentStatus } from '@/types/payment';
 
 const labels: Record<PaymentStatus, string> = {
@@ -18,7 +20,7 @@ const labels: Record<PaymentStatus, string> = {
 
 const money = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
 
-export function Pricing() {
+export function Pricing({ user }: { user: AppUser }) {
   const navigate = useNavigate();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [product, setProduct] = useState<PaymentProduct | null>(null);
@@ -43,7 +45,7 @@ export function Pricing() {
       const { payment } = await paymentsApi.get(orderId);
       setPayments(current => [payment, ...current.filter(item => item.orderId !== payment.orderId)]);
       setMessage(payment.status === 'succeeded'
-        ? 'Payment verified. Entitlements are not activated in this release.'
+        ? 'Payment verified. Your 30-day Pro pass is active.'
         : `Payment status: ${labels[payment.status]}.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not verify payment status.');
@@ -94,29 +96,46 @@ export function Pricing() {
   };
 
   const active = payments.find(payment => payment.status === 'created' || payment.status === 'pending');
+  const subscription = getSubscriptionSummary(payments);
+  const accountIsPro = subscription.active || user.tier === 'pro';
+  const hasExpiredPass = !subscription.active && subscription.expiresAt !== null;
+  const expirationLabel = subscription.expiresAt?.toLocaleDateString('id-ID', { dateStyle: 'long' });
 
   return (
     <PageShell>
-      <PageHeader title="Pricing" actions={<Button variant="outline" onClick={() => navigate('/')}><ArrowLeft /> Home</Button>} />
+      <PageHeader title="Plan and billing" actions={<Button variant="outline" onClick={() => navigate('/account')}><ArrowLeft /> Account</Button>} />
+      <Alert variant={accountIsPro ? 'default' : undefined}>
+        {accountIsPro ? <Sparkles /> : <CalendarDays />}
+        <AlertTitle>{accountIsPro ? 'Your Pro pass is active' : hasExpiredPass ? 'Your Pro pass has expired' : 'You are on the Free plan'}</AlertTitle>
+        <AlertDescription>
+          {subscription.active
+            ? `${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? 'day' : 'days'} remaining · Access ends ${expirationLabel}.`
+            : user.tier === 'pro'
+              ? 'Your account has Pro access. Contact support if your renewal date is missing.'
+              : hasExpiredPass
+                ? `Your previous access ended ${expirationLabel}. Renew to regain Pro access.`
+                : 'Upgrade with a one-time payment. There is no automatic renewal.'}
+        </AlertDescription>
+      </Alert>
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><CreditCard /> 30-day pass</CardTitle>
-            <CardDescription>A one-time Midtrans payment. Manual renewal only.</CardDescription>
+            <CardDescription>{accountIsPro ? 'Extend your access with another one-time payment.' : 'One-time payment. No recurring charges.'}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-4xl font-bold">{product ? money.format(product.amount) : 'Rp15.000'}</p>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>• Payment validity metadata: 30 days</li>
+              <li>• 30 days of Pro access</li>
               <li>• Secure checkout through Midtrans Snap</li>
-              <li>• This release records payments only</li>
+              <li>• Manual renewal — cancel anytime by simply not renewing</li>
             </ul>
             {message && <Alert><CheckCircle2 /><AlertTitle>Payment update</AlertTitle><AlertDescription>{message}</AlertDescription></Alert>}
             {error && <Alert variant="destructive"><AlertTitle>Payment unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
           </CardContent>
           <CardFooter>
             <Button className="w-full" size="lg" disabled={busy || !product || !config} onClick={() => void openPayment()}>
-              {busy ? <><RefreshCw className="animate-spin" /> Opening…</> : active ? 'Resume payment' : 'Pay with Midtrans'}
+              {busy ? <><RefreshCw className="animate-spin" /> Opening…</> : active ? 'Resume payment' : accountIsPro ? 'Extend Pro access' : 'Upgrade to Pro'}
             </Button>
           </CardFooter>
         </Card>
