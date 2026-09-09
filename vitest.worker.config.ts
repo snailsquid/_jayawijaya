@@ -42,6 +42,13 @@ export default defineConfig({
               fraud_status: 'accept',
             });
           }
+          const cancelMatch = url.pathname.match(/^\/v2\/([^/]+)\/cancel$/);
+          if (cancelMatch && request.method === 'POST') {
+            return Response.json({
+              order_id: decodeURIComponent(cancelMatch[1]), status_code: '200', gross_amount: '15000.00', currency: 'IDR',
+              transaction_status: 'cancel', transaction_id: 'midtrans-transaction', payment_type: 'qris', fraud_status: 'accept',
+            });
+          }
           return Response.json({ status_message: 'Unmocked Midtrans request' }, { status: 500 });
         },
       },
