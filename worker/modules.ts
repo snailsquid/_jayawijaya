@@ -143,6 +143,31 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       const stats = await usage(env, user.id); assertWithinQuota(user.tier, stats, parsed.byteSize);
       const id = crypto.randomUUID(); const now = new Date().toISOString();
       const token = visibility === 'live' ? crypto.randomUUID().replaceAll('-', '') : null;
+      const deleted = await env.DB.prepare(`SELECT id, latest_version FROM modules
+        WHERE owner_id = ? AND content_hash = ? AND deleted_at IS NOT NULL`)
+        .bind(user.id, parsed.contentHash).first<{ id: string; latest_version: number }>();
+      if (deleted) {
+        const next = Number(deleted.latest_version) + 1;
+        await env.DB.batch([
+          env.DB.prepare(`UPDATE modules SET title=?, description=?, category_id=NULL, content_version=?, questions_json=?,
+            byte_size=?, question_count=?, visibility=?, share_token=?, latest_version=?, deleted_at=NULL, updated_at=?
+            WHERE id=? AND owner_id=? AND deleted_at IS NOT NULL`)
+            .bind(parsed.title, parsed.description, next, parsed.questionsJson, parsed.byteSize, parsed.questionCount,
+              visibility, token, next, now, deleted.id, user.id),
+          env.DB.prepare(`INSERT INTO module_versions
+            (module_id,version,title,description,content_hash,questions_json,byte_size,question_count,created_at)
+            SELECT ?,?,?,?,?,?,?,?,? WHERE changes() > 0`)
+            .bind(deleted.id, next, parsed.title, parsed.description, parsed.contentHash, parsed.questionsJson,
+              parsed.byteSize, parsed.questionCount, now),
+          env.DB.prepare(`INSERT INTO module_library
+            (user_id,module_id,current_version,category_id,subscribed,created_at,updated_at)
+            SELECT ?,?,?,?,0,?,? WHERE changes() > 0`)
+            .bind(user.id, deleted.id, next, parsed.categoryId, now, now),
+        ]);
+        const restored = await getLibraryModule(env, user.id, deleted.id);
+        if (!restored) throw new ModuleValidationError('Module could not be restored. Reload and try again.', 409, 'RESTORE_CONFLICT');
+        return json({ module: fromRow(restored) }, 201);
+      }
       await env.DB.batch([
         env.DB.prepare(`INSERT INTO modules
           (id, owner_id, title, description, content_hash, content_version, questions_json, byte_size, question_count,

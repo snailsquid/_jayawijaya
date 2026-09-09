@@ -7,7 +7,11 @@ const api = vi.hoisted(() => ({
   list: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
+  publish: vi.fn(),
   remove: vi.fn(),
+  setSharing: vi.fn(),
+  sync: vi.fn(),
+  syncAll: vi.fn(),
 }));
 
 vi.mock('../../src/lib/api', () => ({ modulesApi: api }));
@@ -54,5 +58,20 @@ describe('useModules usage', () => {
 
     expect(result.current.usage).toEqual({ moduleCount: 1, usedBytes: bytes(original) });
     expect(result.current.modules[0]).toEqual(categorized);
+  });
+
+  it('updates storage usage when publishing a replacement', async () => {
+    const enlarged: Module = {
+      ...original,
+      questions: [{ ...original.questions[0], explanation: 'A longer published explanation.' }],
+    };
+    api.publish.mockResolvedValue({ module: enlarged });
+    const { result } = renderHook(() => useModules());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(() => result.current.publishModule(original.id, enlarged));
+
+    expect(result.current.usage).toEqual({ moduleCount: 1, usedBytes: bytes(enlarged) });
+    expect(result.current.modules[0]).toEqual(enlarged);
   });
 });

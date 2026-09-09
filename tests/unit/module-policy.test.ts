@@ -59,7 +59,23 @@ describe('module policy', () => {
     const oversized = Array.from({ length: 500 }, (_, index) => ({
       question: `${index}${'q'.repeat(5_000)}`,
       explanation: 'e'.repeat(5_000),
+      answers: ['A', 'B'],
+      correct_answer: 1,
     }));
     expect(() => validateModuleInput({ title: 'Large', questions: oversized })).toThrow('2 MB');
+  });
+
+  it.each([
+    [{ question: 'Q?', type: 3, answers: ['A', 'B'], correct_answer: 1 }, 'invalid type'],
+    [{ question: 'Q?', answers: ['A'], correct_answer: 1 }, 'between 2'],
+    [{ question: 'Q?', answers: ['A', 'B'] }, 'correct answer'],
+    [{ question: 'Q?', answers: ['A', 'B'], correct_answer: 3 }, 'correct answer'],
+    [{ question: 'Q?', answers: ['A', 'B'], correct_answer: [1, 1] }, 'correct answer'],
+    [{ question: 'Q?', type: 2, answer: '' }, 'text answer'],
+    [{ question: 'Q?', type: 2, answer: 'A', correct_answer: 1 }, 'mix'],
+    [{ question: 'Q?', answer: 'A' }, 'type 2'],
+    [{ question: 'Q?', answers: ['A', 'B'], correct_answer: 1, point: 0 }, 'point'],
+  ])('rejects unusable question schemas', (question, message) => {
+    expect(() => validateModuleInput({ ...validModule, questions: [question] })).toThrow(message);
   });
 });

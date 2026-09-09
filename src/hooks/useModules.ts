@@ -73,7 +73,16 @@ export function useModules() {
 
   const publishModule = useCallback(async (id: string, replacement: Module) => {
     const { module } = await modulesApi.publish(id, replacement);
-    setModules(previous => previous.map(item => item.id === id ? module : item));
+    setModules(previous => {
+      const replaced = previous.find(item => item.id === id);
+      if (replaced) {
+        const byteDelta = moduleBytes(module) - moduleBytes(replaced);
+        if (byteDelta !== 0) {
+          setUsage(current => ({ ...current, usedBytes: Math.max(0, current.usedBytes + byteDelta) }));
+        }
+      }
+      return previous.map(item => item.id === id ? module : item);
+    });
     return module;
   }, []);
 

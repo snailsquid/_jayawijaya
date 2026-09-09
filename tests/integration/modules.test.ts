@@ -83,6 +83,23 @@ describe('account-owned module API', () => {
     expect(forged.status).toBe(400);
   });
 
+  it('restores an owned module when the same content is uploaded after deletion', async () => {
+    const alice = await signUp('restore-alice');
+    const created = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify(moduleBody) });
+    const original = (await created.json() as { module: { id: string } }).module;
+    expect((await api(`/api/modules/${original.id}`, alice, { method: 'DELETE' })).status).toBe(204);
+
+    const restored = await api('/api/modules', alice, {
+      method: 'POST', body: JSON.stringify({ ...moduleBody, title: 'Restored' }),
+    });
+    expect(restored.status).toBe(201);
+    expect((await restored.json() as { module: { id: string; title: string; currentVersion: number } }).module)
+      .toMatchObject({ id: original.id, title: 'Restored', currentVersion: 2 });
+    const row = await env.DB.prepare('SELECT deleted_at FROM modules WHERE id = ?').bind(original.id)
+      .first<{ deleted_at: string | null }>();
+    expect(row?.deleted_at).toBeNull();
+  });
+
   it('does not allow registration to choose role or tier', async () => {
     const cookie = await signUp('mallory', { role: 'admin', tier: 'pro' });
     const me = await api('/api/me', cookie);
