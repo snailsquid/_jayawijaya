@@ -1,19 +1,14 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { Module, QuizMode, QuizState, Question } from '../types/quiz';
+import type { QuizState, Question } from '../types/quiz';
 import { useQuiz } from '../hooks/useQuiz';
 import { QuizGrid } from '../components/QuizGrid';
 import { QuestionCard } from '../components/QuestionCard';
-
-interface RunningState {
-  modules: Module[];
-  mode: QuizMode;
-  randomize: boolean;
-  questionLimit?: number;
-  distributionMode?: 'equal' | 'proportional';
-  timerDuration?: number;
-  timerStart?: number;
-}
+import { ArrowLeft, ArrowRight, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { authClient } from '../lib/auth-client';
+import { activeOwnerKey, clearActiveQuizSnapshot, loadQuizSnapshot, removeQuizSnapshot, saveQuizSnapshot, type RunningState } from '../lib/quiz-snapshot';
 
 function ConfirmPopup({
   open,
@@ -26,44 +21,8 @@ function ConfirmPopup({
   onConfirm: () => void;
   message: string;
 }) {
-  if (!open) return null;
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          backgroundColor: '#fff',
-          border: '4px solid #000',
-          padding: '24px',
-          maxWidth: '400px',
-          textAlign: 'center',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px' }}>{message}</p>
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-          <button onClick={onClose} className="neu-btn">
-            Cancel
-          </button>
-          <button onClick={onConfirm} className="neu-btn neu-btn-primary">
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
+    <AlertDialog open={open} onOpenChange={value => !value && onClose()}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Finish quiz?</AlertDialogTitle><AlertDialogDescription>{message}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel><AlertDialogAction onClick={onConfirm}>Finish quiz</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   );
 }
 
@@ -71,29 +30,21 @@ export function Running() {
   const navigate = useNavigate();
   const location = useLocation();
   const { initializeQuiz, calculateResults, getQuestionState } = useQuiz();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
   
   const locationState = location.state as RunningState | null;
+  const ownerHint = locationState?.ownerId ?? sessionStorage.getItem(activeOwnerKey) ?? '';
+  const initialSnapshot = useMemo(() => ownerHint ? loadQuizSnapshot(ownerHint) : null, [ownerHint]);
   const initialState = useMemo(() => {
     if (locationState?.modules) return locationState;
-    const saved = sessionStorage.getItem('jayawijaya-running');
-    if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
-    }
-    return null;
-  }, [locationState]);
+    return initialSnapshot?.running ?? null;
+  }, [locationState, initialSnapshot]);
 
   const [quizState, setQuizState] = useState<{ questions: Question[]; state: QuizState }>(() => {
     if (!initialState?.modules) {
       return { questions: [], state: {} as QuizState };
     }
-    const savedState = sessionStorage.getItem('jayawijaya-quizstate');
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState);
-        sessionStorage.removeItem('jayawijaya-quizstate');
-        return parsed;
-      } catch { /* ignore */ }
-    }
+    if (initialSnapshot?.quiz) return initialSnapshot.quiz;
     const { questions, state } = initializeQuiz(
       initialState.modules,
       initialState.mode,
@@ -119,10 +70,17 @@ export function Running() {
   });
   const timerFinished = useRef(false);
   const confirmFinishRef = useRef<() => void>(() => {});
+  const authenticatedUserId = session?.user?.id;
+  const isOwner = Boolean(!sessionPending && authenticatedUserId && initialState?.ownerId === authenticatedUserId);
+
+  useEffect(() => {
+    const denied = !sessionPending && (!authenticatedUserId || (initialState?.ownerId && initialState.ownerId !== authenticatedUserId));
+    if (denied && locationState) navigate('/running', { replace: true });
+  }, [authenticatedUserId, initialState?.ownerId, locationState, navigate, sessionPending]);
 
   useEffect(() => {
     const dur = initialState?.timerDuration;
-    if (!dur || dur <= 0) return;
+    if (!isOwner || !dur || dur <= 0) return;
     timerFinished.current = false;
 
     const id = setInterval(() => {
@@ -137,7 +95,7 @@ export function Running() {
     }, 1000);
 
     return () => clearInterval(id);
-  }, [initialState?.timerDuration]);
+  }, [initialState?.timerDuration, isOwner]);
 
   useEffect(() => {
     if (timerFinished.current) {
@@ -146,15 +104,10 @@ export function Running() {
   }, [timeLeft]);
 
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      sessionStorage.setItem('jayawijaya-quizstate', JSON.stringify(quizState));
-      if (initialState) {
-        sessionStorage.setItem('jayawijaya-running', JSON.stringify(initialState));
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [quizState, initialState]);
+    if (!isOwner || !initialState?.ownerId || !quizState.questions.length) return;
+    sessionStorage.setItem(activeOwnerKey, initialState.ownerId);
+    saveQuizSnapshot({ ownerId: initialState.ownerId, running: initialState, quiz: quizState });
+  }, [quizState, initialState, isOwner]);
 
   const { questions, state } = quizState;
   const currentQuestion = questions[state.currentQuestionIndex];
@@ -238,23 +191,26 @@ export function Running() {
     const questionLimit = initialState?.questionLimit;
     const distributionMode = initialState?.distributionMode;
     const timerDuration = initialState?.timerDuration;
-    sessionStorage.removeItem('jayawijaya-running');
-    sessionStorage.removeItem('jayawijaya-quizstate');
-    navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, randomize, questionLimit, distributionMode, timerDuration } });
+    if (initialState?.ownerId) removeQuizSnapshot(initialState.ownerId);
+    sessionStorage.removeItem(activeOwnerKey);
+    navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, ownerId: initialState?.ownerId, randomize, questionLimit, distributionMode, timerDuration } });
   }, [calculateResults, questions, state.answers, navigate, mode, initialState]);
 
   useEffect(() => {
     confirmFinishRef.current = confirmFinish;
   });
 
+  if (sessionPending) return <main className="grid min-h-screen place-items-center p-6 font-semibold">Loading account…</main>;
+  if (!session?.user) return <main className="grid min-h-screen place-content-center gap-4 p-6 text-center"><p>Your quiz is safe on this device. Sign in again to continue.</p><Button onClick={() => void authClient.signIn.social({ provider: 'google', callbackURL: '/running' })}>Sign in again</Button></main>;
+  const accountMismatch = Boolean(initialState?.ownerId && authenticatedUserId !== initialState.ownerId);
+  if (accountMismatch) return <main className="grid min-h-screen place-content-center gap-4 p-6 text-center"><p>This quiz belongs to another account.</p><Button onClick={() => navigate('/start', { replace: true })}>Go to my modules</Button></main>;
+
   if (!currentQuestion) {
     return (
-      <div style={{ padding: '24px' }}>
+      <main className="grid min-h-screen place-content-center gap-4 p-6 text-center">
         <p>No questions loaded.</p>
-        <button onClick={() => navigate('/start')} className="neu-btn">
-          Go Back
-        </button>
-      </div>
+        <Button onClick={() => navigate('/start', { replace: true })}>Go back</Button>
+      </main>
     );
   }
 
@@ -262,40 +218,10 @@ export function Running() {
   const showResult = mode === 'practice' && practiceSubmitted;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'center'
-      }}
-    ><div style={{
-        minHeight: '100vh',
-        padding: '24px',
-        paddingBottom: '100px',
-        overflowY: 'auto',
-        flexDirection: 'column',
-        display: 'flex',
-        gap: '24px',
-        width: '1200px'
-    }}>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button onClick={() => { sessionStorage.removeItem('jayawijaya-running'); sessionStorage.removeItem('jayawijaya-quizstate'); navigate('/start'); }} className="neu-btn">
-          ← Exit
-        </button>
-        <div style={{ fontWeight: 700, fontSize: '18px' }}>
-          {state.currentQuestionIndex + 1} / {questions.length}
-        </div>
-        <div style={{ width: '80px', textAlign: 'right' }}>
-          {timeLeft > 0 && (
-            <span style={{ fontWeight: 700, fontSize: '18px', fontVariantNumeric: 'tabular-nums' }}>
-              {Math.floor(timeLeft / 3600)}:{String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}:{String(timeLeft % 60).padStart(2, '0')}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start' }}>
-        <div style={{ flex: '1 1 300px', minWidth: '0' }}>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 p-4 pb-28 sm:p-6 sm:pb-28">
+      <header className="flex items-center justify-between gap-3"><Button variant="outline" onClick={() => { clearActiveQuizSnapshot(); navigate('/start', { replace: true }); }}><LogOut /> Exit</Button><span className="font-semibold">{state.currentQuestionIndex + 1} / {questions.length}</span><span className="min-w-20 text-right font-mono font-semibold tabular-nums">{timeLeft > 0 ? `${Math.floor(timeLeft / 3600)}:${String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}:${String(timeLeft % 60).padStart(2, '0')}` : ''}</span></header>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
+        <div className="min-w-0">
           <QuestionCard
             question={currentQuestion}
             questionIndex={state.currentQuestionIndex}
@@ -310,7 +236,7 @@ export function Running() {
           />
         </div>
 
-        <div style={{ flex: '0 0 200px', width: '200px' }} className="quiz-grid-mobile">
+        <aside className="w-full">
           <QuizGrid
             totalQuestions={questions.length}
             currentIndex={state.currentQuestionIndex}
@@ -320,33 +246,14 @@ export function Running() {
             onSelectQuestion={goToQuestion}
             onToggleFlag={handleToggleFlag}
           />
-        </div>
+        </aside>
       </div>
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignSelf: 'center',
-          paddingRight: '24px',
-          paddingLeft: '24px',
-          position: 'fixed',
-          bottom: '24px',
-          width: '100%',
-          maxWidth: '1200px'
-        }}
-      >
-        <button
+      <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-4 backdrop-blur"><div className="mx-auto flex max-w-6xl justify-between">
+        <Button variant="outline"
           onClick={handlePrev}
           disabled={state.currentQuestionIndex === 0}
-          className="neu-btn"
-          style={{
-            opacity: state.currentQuestionIndex === 0 ? 0.5 : 1,
-          }}
-        >
-          ← Previous
-        </button>
-        <button
+        ><ArrowLeft /> Previous</Button>
+        <Button size="lg"
           onClick={() => {
             if (state.currentQuestionIndex === questions.length - 1) {
               setConfirmAction('finish');
@@ -355,12 +262,10 @@ export function Running() {
               handleNext();
             }
           }}
-          className="neu-btn neu-btn-primary"
-          style={{ fontSize: '18px', padding: '16px 32px' }}
         >
-          {state.currentQuestionIndex === questions.length - 1 ? 'FINISH' : 'NEXT →'}
-        </button>
-      </div>
+          {state.currentQuestionIndex === questions.length - 1 ? 'Finish' : <>Next <ArrowRight /></>}
+        </Button>
+      </div></div>
 
       <ConfirmPopup
         open={showConfirm}
@@ -380,7 +285,6 @@ export function Running() {
             : 'Continue to next question?'
         }
       />
-    </div>
-    </div>
+    </main>
   );
 }

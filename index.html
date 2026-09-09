@@ -1,6 +1,13 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (() => {
+        const theme = localStorage.getItem('jayawijaya-theme') || 'system';
+        const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/jpeg" href="/icon.jpg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

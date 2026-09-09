@@ -13,7 +13,7 @@ UI layer for quiz interaction, module management, and navigation.
 | `ModeSelector.tsx` | Practice/Exam toggle buttons |
 
 ## CONVENTIONS
-- Inline styles with NEU Brutalist: `box-shadow: 3px 3px 0px #1a1a1a`, `border: 3px solid #000`
-- Colors: Correct=`#00d4ff`, Incorrect=`#ff6b9d`, Correct miss=`#ff9f43`, Flag=`#ffd93d`
-- No Tailwind classes in components (inline styles only)
-- Props interfaces defined at top of each file
+- Use shadcn/ui primitives from `components/ui` for interactive controls.
+- Use Tailwind utilities for layout and semantic theme tokens for colors.
+- Quiz result states use the centralized `quiz-*` theme tokens and text/icons, never color alone.
+- Avoid presentation-oriented inline styles and raw color values.
