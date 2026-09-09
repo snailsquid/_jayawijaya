@@ -29,7 +29,7 @@ export function ModuleUploadModal({ open, onClose, onUpload, existingModules }: 
   return <Dialog open={open} onOpenChange={value => { if (!value) onClose() }}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>Upload module</DialogTitle><DialogDescription>Choose a YAML file or paste its contents below.</DialogDescription></DialogHeader>
     <input ref={fileRef} type="file" accept=".yaml,.yml" onChange={choose} className="sr-only" aria-label="Choose YAML file" />
     <Button variant="outline" onClick={() => fileRef.current?.click()}><FileUp /> Choose YAML file</Button>
-    <Textarea value={yaml} onChange={e => update(e.target.value)} placeholder="Paste YAML content here…" spellCheck={false} className="min-h-56 font-mono" aria-invalid={Boolean(error)} />
+    <Textarea value={yaml} onChange={e => update(e.target.value)} placeholder="Paste YAML content here…" aria-label="Paste YAML content" spellCheck={false} className="min-h-56 font-mono" aria-invalid={Boolean(error)} />
     {error && <Alert variant="destructive"><TriangleAlert /><AlertDescription>{error}</AlertDescription></Alert>}{duplicate && <Alert><TriangleAlert /><AlertDescription>{duplicate}</AlertDescription></Alert>}
     <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={finish} disabled={Boolean(error) || !yaml.trim() || busy}>{busy && <LoaderCircle className="animate-spin" />}{busy ? 'Processing…' : 'Finish'}</Button></DialogFooter>
   </DialogContent></Dialog>

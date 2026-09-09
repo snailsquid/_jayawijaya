@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyD1Migrations, env, reset, SELF, type D1Migration } from 'cloudflare:test';
+import { MODULE_LIMITS } from '../../worker/module-policy';
 
 declare module 'cloudflare:test' {
   interface ProvidedEnv { DB: D1Database; TEST_MIGRATIONS: D1Migration[] }
@@ -21,6 +22,15 @@ const moduleBody = {
   title: 'Liver', hash: 'hash-1',
   questions: [{ question: 'Q?', answers: ['A', 'B'], correct_answer: 1 }],
 };
+
+const moduleBytes = (body: typeof moduleBody) => new TextEncoder().encode(JSON.stringify(body.questions)).byteLength;
+
+async function insertModule(ownerId: string, id: string, hash: string, byteSize: number, questions = moduleBody.questions) {
+  await env.DB.prepare(`INSERT INTO modules
+    (id, owner_id, title, content_hash, questions_json, byte_size, question_count, created_at, updated_at)
+    VALUES (?, ?, 'Seed', ?, ?, ?, 1, 'now', 'now')`)
+    .bind(id, ownerId, hash, JSON.stringify(questions), byteSize).run();
+}
 
 async function api(path: string, cookie?: string, init: RequestInit = {}) {
   return SELF.fetch(`http://example.test${path}`, {
@@ -85,6 +95,69 @@ describe('account-owned module API', () => {
     const response = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify(moduleBody) });
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ error: { code: 'MODULE_QUOTA_REACHED' } });
+  });
+
+  it('atomically enforces the module count quota across concurrent creates', async () => {
+    const alice = await signUp('alice');
+    const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'alice@example.test'").first<{ id: string }>();
+    await Promise.all(Array.from({ length: 99 }, (_, index) =>
+      insertModule(user!.id, `seed-${index}`, `seed-hash-${index}`, 2)));
+
+    const responses = await Promise.all(['race-a', 'race-b'].map(hash =>
+      api('/api/modules', alice, { method: 'POST', body: JSON.stringify({ ...moduleBody, hash }) })));
+    expect(responses.map(response => response.status).sort()).toEqual([201, 409]);
+    const rejected = responses.find(response => response.status === 409)!;
+    expect(await rejected.json()).toMatchObject({ error: { code: 'MODULE_QUOTA_REACHED' } });
+    const final = await env.DB.prepare('SELECT COUNT(*) AS count FROM modules WHERE owner_id = ?')
+      .bind(user!.id).first<{ count: number }>();
+    expect(Number(final!.count)).toBe(MODULE_LIMITS.free.modules);
+  });
+
+  it('atomically enforces the storage quota across concurrent creates', async () => {
+    const alice = await signUp('alice');
+    const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'alice@example.test'").first<{ id: string }>();
+    const incomingBytes = moduleBytes(moduleBody);
+    await insertModule(user!.id, 'storage-seed', 'storage-seed-hash', MODULE_LIMITS.free.storageBytes - incomingBytes);
+
+    const responses = await Promise.all(['storage-a', 'storage-b'].map(hash =>
+      api('/api/modules', alice, { method: 'POST', body: JSON.stringify({ ...moduleBody, hash }) })));
+    expect(responses.map(response => response.status).sort()).toEqual([201, 409]);
+    const rejected = responses.find(response => response.status === 409)!;
+    expect(await rejected.json()).toMatchObject({ error: { code: 'STORAGE_QUOTA_REACHED' } });
+    const final = await env.DB.prepare('SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM modules WHERE owner_id = ?')
+      .bind(user!.id).first<{ bytes: number }>();
+    expect(Number(final!.bytes)).toBeLessThanOrEqual(MODULE_LIMITS.free.storageBytes);
+  });
+
+  it('atomically enforces the storage quota across concurrent updates', async () => {
+    const alice = await signUp('alice');
+    const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'alice@example.test'").first<{ id: string }>();
+    const originalQuestions = moduleBody.questions;
+    const expandedQuestions = [{ ...moduleBody.questions[0], question: 'Q'.repeat(200) }];
+    const originalBytes = new TextEncoder().encode(JSON.stringify(originalQuestions)).byteLength;
+    const expandedBytes = new TextEncoder().encode(JSON.stringify(expandedQuestions)).byteLength;
+    await insertModule(user!.id, 'update-a', 'update-hash-a', originalBytes, originalQuestions);
+    await insertModule(user!.id, 'update-b', 'update-hash-b', originalBytes, originalQuestions);
+    await insertModule(user!.id, 'update-filler', 'update-filler-hash',
+      MODULE_LIMITS.free.storageBytes - originalBytes - expandedBytes);
+
+    const responses = await Promise.all(['update-a', 'update-b'].map(id =>
+      api(`/api/modules/${id}`, alice, { method: 'PATCH', body: JSON.stringify({ questions: expandedQuestions }) })));
+    expect(responses.map(response => response.status).sort()).toEqual([200, 409]);
+    const rejected = responses.find(response => response.status === 409)!;
+    expect(await rejected.json()).toMatchObject({ error: { code: 'STORAGE_QUOTA_REACHED' } });
+    const final = await env.DB.prepare('SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM modules WHERE owner_id = ?')
+      .bind(user!.id).first<{ bytes: number }>();
+    expect(Number(final!.bytes)).toBeLessThanOrEqual(MODULE_LIMITS.free.storageBytes);
+  });
+
+  it('keeps not-found failures distinct from quota failures', async () => {
+    const alice = await signUp('alice');
+    const response = await api('/api/modules/missing', alice, {
+      method: 'PATCH', body: JSON.stringify({ title: 'Still missing' }),
+    });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: { code: 'NOT_FOUND' } });
   });
 
   it('rejects invalid and oversized request bodies', async () => {

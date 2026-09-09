@@ -39,52 +39,60 @@ test('account can upload and retain a private module', async ({ page }) => {
   await signUp(page, 'alice');
   await page.goto('/start');
   await expect(page.getByText(/alice-.*@example.com/)).toBeVisible();
-  await page.getByRole('button', { name: 'Upload Modules' }).click();
-  await page.getByPlaceholder('Or paste YAML content here...').fill(`title: E2E Liver Module
+  await page.getByRole('button', { name: /upload modules/i }).click();
+  await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: E2E Liver Module
 questions:
   - question: The liver is in which quadrant?
     answers: [RUQ, LUQ]
     correct_answer: 1`);
-  await page.getByRole('button', { name: /finish/i }).click();
+  await page.getByRole('button', { name: /^finish$/i }).click();
   await expect(page.getByText('E2E Liver Module')).toBeVisible();
   await page.reload();
   await expect(page.getByText('E2E Liver Module')).toBeVisible();
-  await page.getByRole('button', { name: 'Upload Modules' }).click();
-  await page.getByPlaceholder('Or paste YAML content here...').fill(`title: E2E Liver Module
+  await page.getByRole('button', { name: /upload modules/i }).click();
+  await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: E2E Liver Module
 questions:
   - question: The liver is in which quadrant?
     answers: [RUQ, LUQ]
     correct_answer: 1`);
-  await page.getByRole('button', { name: /finish/i }).click();
+  await page.getByRole('button', { name: /^finish$/i }).click();
   await expect(page.getByText(/already uploaded/i)).toBeVisible();
-  await page.getByRole('button', { name: '✕' }).click();
-  await page.getByText('E2E Liver Module').click();
+  await page.getByRole('button', { name: /cancel/i }).click();
+  await page.getByRole('checkbox', { name: 'E2E Liver Module' }).click();
   await page.getByRole('button', { name: /start quiz/i }).click();
-  await page.getByRole('button', { name: 'RUQ' }).click();
+  await page.getByRole('radio', { name: 'RUQ' }).click();
   await page.getByRole('button', { name: /submit answer/i }).click();
-  await page.getByRole('button', { name: 'FINISH' }).click();
-  await page.getByRole('button', { name: 'Confirm' }).click();
-  await expect(page.getByRole('heading', { name: 'RESULTS' })).toBeVisible();
-  await page.getByRole('button', { name: '↻' }).first().click();
+  await page.getByRole('button', { name: /^finish$/i }).click();
+  await page.getByRole('button', { name: /finish quiz/i }).click();
+  await expect(page.getByRole('heading', { name: /results/i })).toBeVisible();
+  await page.getByRole('button', { name: /retry/i }).first().click();
   await expect(page.getByText('The liver is in which quadrant?')).toBeVisible();
+  await page.getByRole('radio', { name: 'RUQ' }).click();
+  await page.getByRole('button', { name: /submit answer/i }).click();
+  await page.getByRole('button', { name: /^finish$/i }).click();
+  await page.getByRole('button', { name: /finish quiz/i }).click();
+  await page.getByRole('button', { name: /^setup$/i }).first().click();
+  await page.getByRole('button', { name: /log out/i }).click();
+  await page.goBack();
+  await expect(page.getByText('The liver is in which quadrant?')).toHaveCount(0);
 });
 
 test('an expired session does not remove an active quiz snapshot', async ({ page }) => {
   const original = await signUp(page, 'quiz-user');
   await page.goto('/start');
-  await page.getByRole('button', { name: 'Upload Modules' }).click();
-  await page.getByPlaceholder('Or paste YAML content here...').fill(`title: Session Module
+  await page.getByRole('button', { name: /upload modules/i }).click();
+  await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: Session Module
 questions:
   - question: Continue after expiry?
     answers: [Yes, No]
     correct_answer: 1`);
-  await page.getByRole('button', { name: /finish/i }).click();
-  await page.getByText('Session Module').click();
+  await page.getByRole('button', { name: /^finish$/i }).click();
+  await page.getByRole('checkbox', { name: 'Session Module' }).click();
   await page.getByRole('button', { name: /^start quiz$/i }).click();
   await expect(page.getByText('Continue after expiry?')).toBeVisible();
   await page.context().clearCookies();
   await page.reload();
-  await expect(page.getByText('Continue after expiry?')).toBeVisible();
+  await expect(page.getByText('Continue after expiry?')).toHaveCount(0);
   await expect(page.getByText(/quiz is safe/i)).toBeVisible();
   const login = await page.request.post('/api/auth/sign-in/email', {
     headers: { origin: 'http://127.0.0.1:5173' },

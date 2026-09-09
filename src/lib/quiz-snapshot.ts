@@ -18,6 +18,7 @@ export interface QuizSnapshot {
 }
 
 export const snapshotKey = (ownerId: string) => `jayawijaya-running:${ownerId}`;
+export const activeOwnerKey = 'jayawijaya-active-owner';
 
 export function saveQuizSnapshot(snapshot: QuizSnapshot) {
   sessionStorage.setItem(snapshotKey(snapshot.ownerId), JSON.stringify(snapshot));
@@ -38,3 +39,8 @@ export function removeQuizSnapshot(ownerId: string) {
   sessionStorage.removeItem(snapshotKey(ownerId));
 }
 
+export function clearActiveQuizSnapshot() {
+  const ownerId = sessionStorage.getItem(activeOwnerKey);
+  if (ownerId) removeQuizSnapshot(ownerId);
+  sessionStorage.removeItem(activeOwnerKey);
+}

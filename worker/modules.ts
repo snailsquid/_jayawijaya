@@ -1,8 +1,12 @@
 import type { Auth } from './auth';
 import type { Env } from './env';
-import { assertWithinQuota, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
+import { assertWithinQuota, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
 
 interface AuthUser { id: string; role?: string; tier?: string }
+
+function limitsFor(tier: string | undefined) {
+  return tier === 'pro' ? MODULE_LIMITS.pro : MODULE_LIMITS.free;
+}
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status });
@@ -99,14 +103,21 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
     if (request.method === 'POST' && !moduleId) {
       const parsed = validateModuleInput(await readBody(request));
       if (!parsed.contentHash) throw new ModuleValidationError('Module content hash is required.');
-      assertWithinQuota(user.tier, await usage(env, user.id), parsed.byteSize);
+      const limits = limitsFor(user.tier);
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
-      await env.DB.prepare(`INSERT INTO modules
+      const result = await env.DB.prepare(`INSERT INTO modules
         (id, owner_id, title, description, category_id, content_hash, content_version, questions_json, byte_size, question_count, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`)
+        SELECT ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?
+        WHERE (SELECT COUNT(*) FROM modules WHERE owner_id = ?) < ?
+          AND (SELECT COALESCE(SUM(byte_size), 0) FROM modules WHERE owner_id = ?) + ? <= ?`)
         .bind(id, user.id, parsed.title, parsed.description, parsed.categoryId, parsed.contentHash,
-          parsed.questionsJson, parsed.byteSize, parsed.questionCount, now, now).run();
+          parsed.questionsJson, parsed.byteSize, parsed.questionCount, now, now,
+          user.id, limits.modules, user.id, parsed.byteSize, limits.storageBytes).run();
+      if (result.meta.changes === 0) {
+        assertWithinQuota(user.tier, await usage(env, user.id), parsed.byteSize);
+        throw new ModuleValidationError('Module could not be created.', 409, 'MODULE_QUOTA_REACHED');
+      }
       const row = await env.DB.prepare('SELECT * FROM modules WHERE id = ? AND owner_id = ?').bind(id, user.id).first<Record<string, unknown>>();
       return json({ module: fromRow(row!) }, 201);
     }
@@ -119,11 +130,22 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       const body = await readBody(request);
       const parsed = validateModuleInput({ ...original, ...body, ownerId: undefined, owner_id: undefined });
       if (!parsed.contentHash) parsed.contentHash = String(existing.content_hash);
-      assertWithinQuota(user.tier, await usage(env, user.id), parsed.byteSize, Number(existing.byte_size));
-      await env.DB.prepare(`UPDATE modules SET title = ?, description = ?, category_id = ?, content_hash = ?,
-        questions_json = ?, byte_size = ?, question_count = ?, updated_at = ? WHERE id = ? AND owner_id = ?`)
+      const limits = limitsFor(user.tier);
+      const result = await env.DB.prepare(`UPDATE modules SET title = ?, description = ?, category_id = ?, content_hash = ?,
+        questions_json = ?, byte_size = ?, question_count = ?, updated_at = ?
+        WHERE id = ? AND owner_id = ?
+          AND COALESCE((SELECT SUM(other.byte_size) FROM modules AS other
+            WHERE other.owner_id = ? AND other.id <> ?), 0) + ? <= ?`)
         .bind(parsed.title, parsed.description, parsed.categoryId, parsed.contentHash, parsed.questionsJson,
-          parsed.byteSize, parsed.questionCount, new Date().toISOString(), moduleId, user.id).run();
+          parsed.byteSize, parsed.questionCount, new Date().toISOString(), moduleId, user.id,
+          user.id, moduleId, parsed.byteSize, limits.storageBytes).run();
+      if (result.meta.changes === 0) {
+        const current = await env.DB.prepare('SELECT byte_size FROM modules WHERE id = ? AND owner_id = ?')
+          .bind(moduleId, user.id).first<{ byte_size: number }>();
+        if (!current) return json({ error: { code: 'NOT_FOUND', message: 'Module not found.' } }, 404);
+        assertWithinQuota(user.tier, await usage(env, user.id), parsed.byteSize, Number(current.byte_size));
+        throw new ModuleValidationError('Module could not be updated.', 409, 'STORAGE_QUOTA_REACHED');
+      }
       const row = await env.DB.prepare('SELECT * FROM modules WHERE id = ? AND owner_id = ?').bind(moduleId, user.id).first<Record<string, unknown>>();
       return json({ module: fromRow(row!) });
     }

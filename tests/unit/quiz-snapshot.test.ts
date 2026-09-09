@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadQuizSnapshot, removeQuizSnapshot, saveQuizSnapshot, snapshotKey, type QuizSnapshot } from '../../src/lib/quiz-snapshot';
+import { activeOwnerKey, clearActiveQuizSnapshot, loadQuizSnapshot, removeQuizSnapshot, saveQuizSnapshot, snapshotKey, type QuizSnapshot } from '../../src/lib/quiz-snapshot';
 
 const snapshot: QuizSnapshot = {
   ownerId: 'alice',
@@ -28,5 +28,17 @@ describe('quiz snapshots', () => {
     removeQuizSnapshot('alice');
     expect(loadQuizSnapshot('alice')).toBeNull();
   });
-});
 
+  it('clears the active owner and only that owner snapshot', () => {
+    saveQuizSnapshot(snapshot);
+    const bobSnapshot = { ...snapshot, ownerId: 'bob', running: { ...snapshot.running, ownerId: 'bob' } };
+    saveQuizSnapshot(bobSnapshot);
+    sessionStorage.setItem(activeOwnerKey, 'alice');
+
+    clearActiveQuizSnapshot();
+
+    expect(sessionStorage.getItem(activeOwnerKey)).toBeNull();
+    expect(loadQuizSnapshot('alice')).toBeNull();
+    expect(loadQuizSnapshot('bob')).toEqual(bobSnapshot);
+  });
+});
