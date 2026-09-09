@@ -1,4 +1,4 @@
-import { BookOpen, Play } from "lucide-react"
+import { BookOpen, CreditCard, Play } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { InstallPrompt } from "@/components/InstallPrompt"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -10,7 +10,7 @@ export function Home() {
     <div className="absolute right-4 top-4"><ThemeToggle /></div>
     <div className="space-y-3"><h1 className="text-5xl font-black tracking-tighter sm:text-7xl">_jayawijaya</h1><p className="mx-auto max-w-md text-muted-foreground">A modular quiz app with practice and exam modes, multiple-choice and text answers, and local persistence.</p></div>
     <p className="text-sm text-muted-foreground">by <a className="font-semibold underline underline-offset-4" href="https://www.linkedin.com/in/arkandhiya-ibrahim-dewantara-576059235/">ark</a>, <a href="https://jambee.games" className="italic underline underline-offset-4">Jambee</a> cofounder</p>
-    <div className="flex w-full max-w-xs flex-col gap-3"><Button size="lg" onClick={() => navigate('/start')}><Play /> Start</Button><Button variant="outline" onClick={() => navigate('/how-to-create-modules')}><BookOpen /> How to create modules?</Button></div>
+    <div className="flex w-full max-w-xs flex-col gap-3"><Button size="lg" onClick={() => navigate('/start')}><Play /> Start</Button><Button variant="secondary" onClick={() => navigate('/pricing')}><CreditCard /> Pricing</Button><Button variant="outline" onClick={() => navigate('/how-to-create-modules')}><BookOpen /> How to create modules?</Button></div>
     <InstallPrompt />
   </main>
 }

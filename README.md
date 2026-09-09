@@ -57,6 +57,27 @@ bun test
 bun run test:e2e
 ```
 
+## Midtrans payments
+
+Payments use Midtrans Snap through the Cloudflare Worker. Store both Midtrans keys as Worker
+secrets so no credential-shaped values are committed. The client key is exposed to Snap in the
+browser by design; storing it this way only keeps repository secret scanners clean:
+
+```bash
+bunx wrangler secret put MIDTRANS_CLIENT_KEY
+bunx wrangler secret put MIDTRANS_SERVER_KEY
+```
+
+Set the Midtrans notification URL to
+`https://<your-worker-domain>/api/payments/midtrans/notification`. Sandbox is used unless
+`MIDTRANS_IS_PRODUCTION` is explicitly set to `"true"`; production must use matching production
+client and server keys. The current payment product records a verified Rp15,000 30-day pass but
+does not yet grant or change account entitlements.
+
+The payment schema is in `migrations/0004_payments.sql` so it can follow the live-module
+`0003` migration when those feature lines are combined. The migration is safe to run against a
+database that already applied the payment schema under the earlier filename.
+
 ## YAML Module Format
 
 Create quiz modules in YAML format:
