@@ -1,12 +1,30 @@
 import type { Env } from './env';
 
-export const PASS_PRODUCT = {
-  code: 'pro-pass-30d',
-  name: '_jayawijaya 30-day pass',
-  amount: 15_000,
-  currency: 'IDR',
-  entitlementDays: 30,
-} as const;
+export const PREMIUM_BENEFITS = ['200 modules', 'Live module creation'] as const;
+
+export const PAYMENT_PRODUCTS = [
+  {
+    code: 'vip-1m', name: '_jayawijaya VIP — 1 month', plan: 'VIP', amount: 30_000,
+    currency: 'IDR', duration: { unit: 'months', value: 1 }, entitlementDays: 30,
+    benefits: PREMIUM_BENEFITS,
+  },
+  {
+    code: 'vip-plus-6m', name: '_jayawijaya VIP+ — 6 months', plan: 'VIP+', amount: 40_000,
+    currency: 'IDR', duration: { unit: 'months', value: 6 }, entitlementDays: 183,
+    benefits: PREMIUM_BENEFITS,
+  },
+  {
+    code: 'mvp-lifetime', name: '_jayawijaya MVP — lifetime', plan: 'MVP', amount: 100_000,
+    currency: 'IDR', duration: { unit: 'lifetime', value: null }, entitlementDays: null,
+    benefits: PREMIUM_BENEFITS,
+  },
+] as const;
+
+export type PaymentProduct = (typeof PAYMENT_PRODUCTS)[number];
+
+export function findPaymentProduct(code: unknown): PaymentProduct | undefined {
+  return PAYMENT_PRODUCTS.find(product => product.code === code);
+}
 
 export type PaymentStatus = 'created' | 'pending' | 'succeeded' | 'failed' | 'canceled' | 'expired' | 'refunded' | 'charged_back';
 
@@ -37,7 +55,7 @@ export interface ExpectedPayment {
 }
 
 export interface PaymentProvider {
-  createTransaction(input: { orderId: string; amount: number; customer: { name: string; email: string } }): Promise<{ token: string; redirectUrl: string }>;
+  createTransaction(input: { orderId: string; product: PaymentProduct; customer: { name: string; email: string } }): Promise<{ token: string; redirectUrl: string }>;
   getStatus(orderId: string): Promise<MidtransStatusPayload>;
   cancel(orderId: string): Promise<MidtransStatusPayload>;
 }
@@ -81,12 +99,12 @@ export function createMidtransProvider(env: Env): PaymentProvider {
   const snapBase = production ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';
   const apiBase = production ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com';
   return {
-    createTransaction: async ({ orderId, amount, customer }) => {
+    createTransaction: async ({ orderId, product, customer }) => {
       const result = await midtransRequest<{ token: string; redirect_url: string }>(`${snapBase}/snap/v1/transactions`, env, {
         method: 'POST',
         body: JSON.stringify({
-          transaction_details: { order_id: orderId, gross_amount: amount },
-          item_details: [{ id: PASS_PRODUCT.code, price: amount, quantity: 1, name: PASS_PRODUCT.name }],
+          transaction_details: { order_id: orderId, gross_amount: product.amount },
+          item_details: [{ id: product.code, price: product.amount, quantity: 1, name: product.name }],
           customer_details: { first_name: customer.name, email: customer.email },
           credit_card: { secure: true },
         }),
@@ -163,10 +181,7 @@ export async function verifySignature(payload: MidtransStatusPayload, serverKey:
   return constantTimeEqual(expected, payload.signature_key.toLowerCase());
 }
 
-export function validateProviderPayment(payload: MidtransStatusPayload, expected: string | ExpectedPayment) {
-  const expectedPayment: ExpectedPayment = typeof expected === 'string'
-    ? { orderId: expected, amount: PASS_PRODUCT.amount, currency: PASS_PRODUCT.currency }
-    : expected;
+export function validateProviderPayment(payload: MidtransStatusPayload, expectedPayment: ExpectedPayment) {
   if (!payload.order_id || !payload.status_code || !payload.gross_amount || !payload.transaction_status) {
     throw new PaymentError('Incomplete Midtrans notification.', 400, 'INVALID_NOTIFICATION');
   }

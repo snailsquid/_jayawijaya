@@ -1,7 +1,7 @@
 import type { Auth } from './auth';
 import type { Env } from './env';
 import {
-  PASS_PRODUCT,
+  PAYMENT_PRODUCTS,
   PaymentError,
   canTransition,
   createMidtransProvider,
@@ -9,6 +9,7 @@ import {
   toProviderUpdate,
   validateProviderPayment,
   verifySignature,
+  findPaymentProduct,
   type ExpectedPayment,
   type MidtransStatusPayload,
   type PaymentProvider,
@@ -114,15 +115,56 @@ async function applyUpdate(env: Env, row: PaymentRow, update: ProviderUpdate) {
         fraudStatus, now, verifiedAt, current.id, current.status).run();
     const latest = await findPayment(env, current.order_id);
     if (!latest) throw new PaymentError('Payment disappeared while it was being updated.', 409, 'PAYMENT_CONFLICT');
-    if (result.meta.changes > 0) return latest;
+    if (result.meta.changes > 0) {
+      await syncEntitlement(env, latest);
+      return latest;
+    }
     current = latest;
   }
 }
 
-async function findActivePayment(env: Env, userId: string) {
+function addCalendarMonths(iso: string, months: number) {
+  const date = new Date(iso);
+  const originalDay = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  date.setUTCDate(Math.min(originalDay, lastDay));
+  return date.toISOString();
+}
+
+async function syncEntitlement(env: Env, payment: PaymentRow) {
+  const product = findPaymentProduct(payment.product_code);
+  if (!product) return;
+  const now = new Date().toISOString();
+  if (payment.status === 'succeeded') {
+    const existing = await env.DB.prepare('SELECT 1 ok FROM entitlements WHERE payment_id = ?')
+      .bind(payment.id).first();
+    if (existing) return;
+    const lifetime = await env.DB.prepare(`SELECT 1 ok FROM entitlements
+      WHERE user_id = ? AND active = 1 AND expires_at IS NULL LIMIT 1`).bind(payment.user_id).first();
+    const latest = await env.DB.prepare(`SELECT expires_at FROM entitlements
+      WHERE user_id = ? AND active = 1 AND expires_at > ? ORDER BY expires_at DESC LIMIT 1`)
+      .bind(payment.user_id, now).first<{ expires_at: string }>();
+    const startsAt = lifetime ? now : latest?.expires_at ?? now;
+    const expiresAt = product.duration.unit === 'lifetime'
+      ? null
+      : addCalendarMonths(startsAt, product.duration.value);
+    await env.DB.prepare(`INSERT OR IGNORE INTO entitlements
+      (id, user_id, payment_id, product_code, plan, starts_at, expires_at, active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`)
+      .bind(crypto.randomUUID(), payment.user_id, payment.id, product.code, product.plan,
+        startsAt, expiresAt, now, now).run();
+  } else if (payment.status === 'refunded' || payment.status === 'charged_back') {
+    await env.DB.prepare('UPDATE entitlements SET active = 0, updated_at = ? WHERE payment_id = ?')
+      .bind(now, payment.id).run();
+  }
+}
+
+async function findActivePayment(env: Env, userId: string, productCode: string) {
   return env.DB.prepare(`SELECT * FROM payments WHERE user_id = ? AND product_code = ?
     AND status IN ('created', 'pending') ORDER BY created_at DESC LIMIT 1`)
-    .bind(userId, PASS_PRODUCT.code).first<PaymentRow>();
+    .bind(userId, productCode).first<PaymentRow>();
 }
 
 async function recoverAbandonedCreation(env: Env, active: PaymentRow | null) {
@@ -133,7 +175,7 @@ async function recoverAbandonedCreation(env: Env, active: PaymentRow | null) {
   const result = await env.DB.prepare(`UPDATE payments SET status = 'expired', provider_status = 'creation_abandoned',
     updated_at = ? WHERE id = ? AND status = 'created' AND snap_token IS NULL`)
     .bind(now, active.id).run();
-  return result.meta.changes > 0 ? null : findActivePayment(env, active.user_id);
+  return result.meta.changes > 0 ? null : findActivePayment(env, active.user_id, active.product_code);
 }
 
 async function reconcile(env: Env, row: PaymentRow, provider: PaymentProvider) {
@@ -148,10 +190,14 @@ async function createPayment(request: Request, env: Env, user: AuthUser, provide
     throw new PaymentError('Invalid request origin.', 403, 'INVALID_ORIGIN');
   }
   const body = await readJson<{ productCode?: unknown }>(request);
-  if (body.productCode !== PASS_PRODUCT.code) {
+  const product = findPaymentProduct(body.productCode);
+  if (!product) {
     throw new PaymentError('Unknown payment product.', 422, 'INVALID_PRODUCT');
   }
-  const active = await recoverAbandonedCreation(env, await findActivePayment(env, user.id));
+  const lifetime = await env.DB.prepare(`SELECT 1 ok FROM entitlements
+    WHERE user_id = ? AND active = 1 AND expires_at IS NULL LIMIT 1`).bind(user.id).first();
+  if (lifetime) throw new PaymentError('Lifetime access is already active.', 409, 'LIFETIME_ALREADY_ACTIVE');
+  const active = await recoverAbandonedCreation(env, await findActivePayment(env, user.id, product.code));
   if (active?.snap_token) return json({ payment: fromRow(active), config: clientConfig(env) });
   if (active) throw new PaymentError('A payment is already being prepared. Try again shortly.', 409, 'PAYMENT_IN_PROGRESS');
 
@@ -162,11 +208,11 @@ async function createPayment(request: Request, env: Env, user: AuthUser, provide
     await env.DB.prepare(`INSERT INTO payments
       (id, order_id, user_id, product_code, amount, currency, entitlement_days, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'created', ?, ?)`)
-      .bind(id, orderId, user.id, PASS_PRODUCT.code, PASS_PRODUCT.amount, PASS_PRODUCT.currency,
-        PASS_PRODUCT.entitlementDays, now, now).run();
+      .bind(id, orderId, user.id, product.code, product.amount, product.currency,
+        product.entitlementDays, now, now).run();
   } catch (error) {
     if (String(error).includes('UNIQUE constraint failed')) {
-      const existing = await recoverAbandonedCreation(env, await findActivePayment(env, user.id));
+      const existing = await recoverAbandonedCreation(env, await findActivePayment(env, user.id, product.code));
       if (existing?.snap_token) return json({ payment: fromRow(existing), config: clientConfig(env) });
       if (existing) throw new PaymentError('A payment is already being prepared. Try again shortly.', 409, 'PAYMENT_IN_PROGRESS');
     }
@@ -176,7 +222,7 @@ async function createPayment(request: Request, env: Env, user: AuthUser, provide
   try {
     const transaction = await provider.createTransaction({
       orderId,
-      amount: PASS_PRODUCT.amount,
+      product,
       customer: { name: user.name, email: user.email },
     });
     if (!transaction.token) throw new PaymentError('Midtrans did not return a payment token.', 502, 'PROVIDER_ERROR');
@@ -233,7 +279,17 @@ export async function handlePayments(request: Request, env: Env, auth: Auth): Pr
     if (request.method === 'GET' && !orderId) {
       const result = await env.DB.prepare('SELECT * FROM payments WHERE user_id = ? ORDER BY created_at DESC')
         .bind(user.id).all<PaymentRow>();
-      return json({ payments: result.results.map(fromRow), product: PASS_PRODUCT, config: clientConfig(env) });
+      const entitlement = await env.DB.prepare(`SELECT plan, starts_at, expires_at FROM entitlements
+        WHERE user_id = ? AND active = 1 AND (expires_at IS NULL OR expires_at > ?)
+        ORDER BY expires_at IS NULL DESC, expires_at DESC LIMIT 1`)
+        .bind(user.id, new Date().toISOString()).first();
+      return json({
+        payments: result.results.map(fromRow), products: PAYMENT_PRODUCTS,
+        entitlement: entitlement ? {
+          plan: entitlement.plan, startsAt: entitlement.starts_at, expiresAt: entitlement.expires_at,
+        } : null,
+        config: clientConfig(env),
+      });
     }
     if (request.method === 'GET' && orderId) {
       let row = await findPayment(env, orderId, user.id);

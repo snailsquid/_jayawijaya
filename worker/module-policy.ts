@@ -1,11 +1,13 @@
 export const MODULE_LIMITS = {
   free: {
-    modules: 100,
+    modules: 10,
     storageBytes: 25 * 1024 * 1024,
+    liveModules: false,
   },
   pro: {
-    modules: 1_000,
+    modules: 200,
     storageBytes: 500 * 1024 * 1024,
+    liveModules: true,
   },
   uploadBytes: 2 * 1024 * 1024,
   questionsPerModule: 500,
@@ -18,6 +20,10 @@ export const MODULE_LIMITS = {
 } as const;
 
 export type Tier = keyof Pick<typeof MODULE_LIMITS, 'free' | 'pro'>;
+
+export function limitsFor(tier?: string) {
+  return tier === 'pro' ? MODULE_LIMITS.pro : MODULE_LIMITS.free;
+}
 
 interface QuestionInput {
   type?: unknown;
@@ -165,8 +171,7 @@ export function assertWithinQuota(
   incomingBytes: number,
   replacingBytes = 0,
 ) {
-  const normalizedTier: Tier = tier === 'pro' ? 'pro' : 'free';
-  const limits = MODULE_LIMITS[normalizedTier];
+  const limits = limitsFor(tier);
   const isCreate = replacingBytes === 0;
   if (isCreate && usage.moduleCount >= limits.modules) {
     throw new ModuleValidationError('Module count quota reached.', 409, 'MODULE_QUOTA_REACHED');

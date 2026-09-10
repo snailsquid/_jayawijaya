@@ -23,7 +23,7 @@ function api(path: string, cookie?: string, init: RequestInit = {}) {
 
 async function notification(orderId: string, overrides: Record<string, string> = {}) {
   const payload = {
-    order_id: orderId, status_code: '200', gross_amount: '15000.00', currency: 'IDR',
+    order_id: orderId, status_code: '200', gross_amount: '30000.00', currency: 'IDR',
     transaction_status: 'settlement', transaction_id: 'midtrans-transaction', payment_type: 'qris', fraud_status: 'accept',
     ...overrides,
   };
@@ -56,11 +56,11 @@ describe('payment API', () => {
 
   it('creates a fixed-price order and resumes the active Snap transaction', async () => {
     const cookie = await signUp('alice');
-    const first = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d', amount: 1 }) });
+    const first = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m', amount: 1 }) });
     expect(first.status).toBe(201);
     const firstBody = await first.json() as { payment: { orderId: string; amount: number; snapToken: string } };
-    expect(firstBody.payment).toMatchObject({ amount: 15_000, snapToken: 'snap-token' });
-    const resumed = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    expect(firstBody.payment).toMatchObject({ amount: 30_000, snapToken: 'snap-token' });
+    const resumed = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     expect(resumed.status).toBe(200);
     expect((await resumed.json() as { payment: { orderId: string } }).payment.orderId).toBe(firstBody.payment.orderId);
   });
@@ -71,9 +71,9 @@ describe('payment API', () => {
     const staleTime = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     await env.DB.prepare(`INSERT INTO payments
       (id, order_id, user_id, product_code, amount, currency, entitlement_days, status, created_at, updated_at)
-      VALUES ('stale-id', 'stale-order', ?, 'pro-pass-30d', 15000, 'IDR', 30, 'created', ?, ?)`).bind(user!.id, staleTime, staleTime).run();
+      VALUES ('stale-id', 'stale-order', ?, 'vip-1m', 30000, 'IDR', 30, 'created', ?, ?)`).bind(user!.id, staleTime, staleTime).run();
 
-    const response = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const response = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     expect(response.status).toBe(201);
     const stale = await env.DB.prepare("SELECT status, provider_status FROM payments WHERE id = 'stale-id'")
       .first<{ status: string; provider_status: string }>();
@@ -82,7 +82,7 @@ describe('payment API', () => {
 
   it('reconciles an active payment from the provider before returning its detail', async () => {
     const cookie = await signUp('alice');
-    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     const orderId = (await created.json() as { payment: { orderId: string } }).payment.orderId;
     const detail = await api(`/api/payments/${orderId}`, cookie);
     expect(detail.status).toBe(200);
@@ -93,44 +93,47 @@ describe('payment API', () => {
   it('enforces ownership of payment detail', async () => {
     const alice = await signUp('alice');
     const bob = await signUp('bob');
-    const created = await api('/api/payments', alice, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const created = await api('/api/payments', alice, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     const orderId = (await created.json() as { payment: { orderId: string } }).payment.orderId;
     expect((await api(`/api/payments/${orderId}`, bob)).status).toBe(404);
   });
 
   it('lets the owner cancel a pending payment and start a replacement', async () => {
     const cookie = await signUp('alice');
-    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     const orderId = (await created.json() as { payment: { orderId: string } }).payment.orderId;
     const canceled = await api(`/api/payments/${orderId}`, cookie, { method: 'DELETE' });
     expect(canceled.status).toBe(200);
     expect((await canceled.json() as { payment: { status: string; snapToken: string | null } }).payment)
       .toMatchObject({ status: 'canceled', snapToken: null });
 
-    const replacement = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const replacement = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     expect(replacement.status).toBe(201);
     expect((await replacement.json() as { payment: { orderId: string } }).payment.orderId).not.toBe(orderId);
   });
 
-  it('verifies and idempotently persists notifications without granting Pro', async () => {
+  it('verifies notifications and idempotently grants the purchased entitlement', async () => {
     const cookie = await signUp('alice');
-    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     const orderId = (await created.json() as { payment: { orderId: string } }).payment.orderId;
     expect((await notification(orderId)).status).toBe(200);
     expect((await notification(orderId)).status).toBe(200);
     const row = await env.DB.prepare('SELECT status, verified_at FROM payments WHERE order_id = ?').bind(orderId).first<{ status: string; verified_at: string | null }>();
     expect(row?.status).toBe('succeeded');
     expect(row?.verified_at).toBeTruthy();
-    const user = await env.DB.prepare("SELECT tier FROM user WHERE email = 'alice@example.test'").first<{ tier: string }>();
-    expect(user?.tier).toBe('free');
+    const grants = await env.DB.prepare(`SELECT e.plan, e.expires_at, e.active FROM entitlements e
+      JOIN user u ON u.id = e.user_id WHERE u.email = 'alice@example.test'`).all();
+    expect(grants.results).toHaveLength(1);
+    expect(grants.results[0]).toMatchObject({ plan: 'VIP', active: 1 });
+    expect(grants.results[0].expires_at).toBeTruthy();
   });
 
   it('rejects invalid signatures and mismatched amounts', async () => {
     const cookie = await signUp('alice');
-    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     const orderId = (await created.json() as { payment: { orderId: string } }).payment.orderId;
     const invalid = await api('/api/payments/midtrans/notification', undefined, {
-      method: 'POST', body: JSON.stringify({ order_id: orderId, status_code: '200', gross_amount: '15000.00', transaction_status: 'settlement', signature_key: 'bad' }),
+      method: 'POST', body: JSON.stringify({ order_id: orderId, status_code: '200', gross_amount: '30000.00', transaction_status: 'settlement', signature_key: 'bad' }),
     });
     expect(invalid.status).toBe(401);
     expect((await notification(orderId, { gross_amount: '1.00' })).status).toBe(409);
@@ -138,7 +141,7 @@ describe('payment API', () => {
 
   it('ignores stale pending notifications after settlement', async () => {
     const cookie = await signUp('alice');
-    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     const orderId = (await created.json() as { payment: { orderId: string } }).payment.orderId;
     await notification(orderId);
     await notification(orderId, { transaction_status: 'pending' });
@@ -148,7 +151,7 @@ describe('payment API', () => {
 
   it('does not lose a refund racing with settlement', async () => {
     const cookie = await signUp('alice');
-    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'pro-pass-30d' }) });
+    const created = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     const orderId = (await created.json() as { payment: { orderId: string } }).payment.orderId;
     const [settlement, refund] = await Promise.all([
       notification(orderId),

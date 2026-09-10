@@ -23,7 +23,7 @@ import { clearActiveQuizSnapshot } from '../lib/quiz-snapshot';
 
 export function Start({ user }: { user: AppUser }) {
   const navigate = useNavigate();
-  const { modules, usage, loading, error: modulesError, addModules, updateModule, deleteModule, setSharing, publishModule, syncModule, syncAll } = useModules();
+  const { modules, usage, limits, loading, error: modulesError, addModules, updateModule, deleteModule, setSharing, publishModule, syncModule, syncAll } = useModules();
   const [config, setConfig] = useLocalStorage<QuizConfig>(`jayawijaya-config:${user.id}`, {
     selectedModuleIds: [],
     mode: 'practice',
@@ -45,7 +45,7 @@ export function Start({ user }: { user: AppUser }) {
   const [legacyModules, setLegacyModules] = useState<Module[]>(() => {
     try { return JSON.parse(localStorage.getItem('jayawijaya-modules') ?? '[]'); } catch { return []; }
   });
-  const displayedLimits = user.tier === 'pro' ? { modules: 1_000, storageMb: 500 } : { modules: 100, storageMb: 25 };
+  const displayedLimits = { modules: limits.modules, storageMb: limits.storageBytes / 1024 / 1024 };
 
   const categories = useMemo(() => {
     const cats = new Set<string>();

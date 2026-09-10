@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { canTransition, isProduction, mapMidtransStatus, PASS_PRODUCT, signatureFor, validateProviderPayment } from '../../worker/midtrans';
+import { canTransition, isProduction, mapMidtransStatus, PAYMENT_PRODUCTS, signatureFor, validateProviderPayment } from '../../worker/midtrans';
 
 describe('Midtrans payment policy', () => {
   it('keeps the initial product server-owned', () => {
-    expect(PASS_PRODUCT).toMatchObject({ code: 'pro-pass-30d', amount: 15_000, currency: 'IDR', entitlementDays: 30 });
+    expect(PAYMENT_PRODUCTS).toMatchObject([
+      { code: 'vip-1m', amount: 30_000, duration: { unit: 'months', value: 1 } },
+      { code: 'vip-plus-6m', amount: 40_000, duration: { unit: 'months', value: 6 } },
+      { code: 'mvp-lifetime', amount: 100_000, duration: { unit: 'lifetime', value: null } },
+    ]);
   });
 
   it('maps provider statuses and fraud decisions', () => {
@@ -32,8 +36,8 @@ describe('Midtrans payment policy', () => {
   });
 
   it('generates the documented SHA-512 notification signature input', async () => {
-    const actual = await signatureFor({ order_id: 'order-1', status_code: '200', gross_amount: '15000.00' }, 'server-key');
-    const bytes = await crypto.subtle.digest('SHA-512', new TextEncoder().encode('order-120015000.00server-key'));
+    const actual = await signatureFor({ order_id: 'order-1', status_code: '200', gross_amount: '30000.00' }, 'server-key');
+    const bytes = await crypto.subtle.digest('SHA-512', new TextEncoder().encode('order-120030000.00server-key'));
     const expected = [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
     expect(actual).toBe(expected);
   });
@@ -42,11 +46,11 @@ describe('Midtrans payment policy', () => {
     const payload = {
       order_id: 'order-1',
       status_code: '200',
-      gross_amount: '15000.00',
+      gross_amount: '30000.00',
       currency: 'IDR',
       transaction_status: 'settlement',
     };
-    expect(() => validateProviderPayment(payload, { orderId: 'order-1', amount: 15_000, currency: 'IDR' })).not.toThrow();
+    expect(() => validateProviderPayment(payload, { orderId: 'order-1', amount: 30_000, currency: 'IDR' })).not.toThrow();
     expect(() => validateProviderPayment(payload, { orderId: 'order-1', amount: 1, currency: 'IDR' })).toThrowError(/do not match/);
   });
 });
