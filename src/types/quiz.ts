@@ -30,6 +30,9 @@ export interface Module {
   frozen?: boolean;
   currentVersion?: number;
   latestVersion?: number;
+  revision?: string;
+  /** Server id for an offline-created module; `id` remains stable for local UI state. */
+  remoteId?: string;
 }
 
 export interface Category {

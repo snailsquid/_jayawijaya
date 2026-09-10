@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { authClient } from '../lib/auth-client';
+import { activeWorkspace } from '../lib/workspace';
 import { activeOwnerKey, clearActiveQuizSnapshot, loadQuizSnapshot, removeQuizSnapshot, saveQuizSnapshot, type RunningState } from '../lib/quiz-snapshot';
 
 function ConfirmPopup({
@@ -33,7 +34,8 @@ export function Running() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
   
   const locationState = location.state as RunningState | null;
-  const ownerHint = locationState?.ownerId ?? sessionStorage.getItem(activeOwnerKey) ?? '';
+  const workspace = activeWorkspace();
+  const ownerHint = locationState?.ownerId ?? localStorage.getItem(activeOwnerKey) ?? '';
   const initialSnapshot = useMemo(() => ownerHint ? loadQuizSnapshot(ownerHint) : null, [ownerHint]);
   const initialState = useMemo(() => {
     if (locationState?.modules) return locationState;
@@ -71,12 +73,13 @@ export function Running() {
   const timerFinished = useRef(false);
   const confirmFinishRef = useRef<() => void>(() => {});
   const authenticatedUserId = session?.user?.id;
-  const isOwner = Boolean(!sessionPending && authenticatedUserId && initialState?.ownerId === authenticatedUserId);
+  const effectiveOwnerId = authenticatedUserId ?? ((!navigator.onLine || workspace.kind === 'guest') ? workspace.id : undefined);
+  const isOwner = Boolean(initialState?.ownerId && initialState.ownerId === effectiveOwnerId);
 
   useEffect(() => {
-    const denied = !sessionPending && (!authenticatedUserId || (initialState?.ownerId && initialState.ownerId !== authenticatedUserId));
+    const denied = !sessionPending && Boolean(initialState?.ownerId && initialState.ownerId !== effectiveOwnerId);
     if (denied && locationState) navigate('/running', { replace: true });
-  }, [authenticatedUserId, initialState?.ownerId, locationState, navigate, sessionPending]);
+  }, [effectiveOwnerId, initialState?.ownerId, locationState, navigate, sessionPending]);
 
   useEffect(() => {
     const dur = initialState?.timerDuration;
@@ -105,7 +108,7 @@ export function Running() {
 
   useEffect(() => {
     if (!isOwner || !initialState?.ownerId || !quizState.questions.length) return;
-    sessionStorage.setItem(activeOwnerKey, initialState.ownerId);
+    localStorage.setItem(activeOwnerKey, initialState.ownerId);
     saveQuizSnapshot({ ownerId: initialState.ownerId, running: initialState, quiz: quizState });
   }, [quizState, initialState, isOwner]);
 
@@ -192,7 +195,7 @@ export function Running() {
     const distributionMode = initialState?.distributionMode;
     const timerDuration = initialState?.timerDuration;
     if (initialState?.ownerId) removeQuizSnapshot(initialState.ownerId);
-    sessionStorage.removeItem(activeOwnerKey);
+    localStorage.removeItem(activeOwnerKey);
     navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, ownerId: initialState?.ownerId, randomize, questionLimit, distributionMode, timerDuration } });
   }, [calculateResults, questions, state.answers, navigate, mode, initialState]);
 
@@ -200,9 +203,9 @@ export function Running() {
     confirmFinishRef.current = confirmFinish;
   });
 
-  if (sessionPending) return <main className="grid min-h-screen place-items-center p-6 font-semibold">Loading account…</main>;
-  if (!session?.user) return <main className="grid min-h-screen place-content-center gap-4 p-6 text-center"><p>Your quiz is safe on this device. Sign in again to continue.</p><Button onClick={() => void authClient.signIn.social({ provider: 'google', callbackURL: '/running' })}>Sign in again</Button></main>;
-  const accountMismatch = Boolean(initialState?.ownerId && authenticatedUserId !== initialState.ownerId);
+  if (sessionPending && navigator.onLine && workspace.kind !== 'guest') return <main className="grid min-h-screen place-items-center p-6 font-semibold">Loading account…</main>;
+  if (!session?.user && workspace.kind === 'account' && navigator.onLine) return <main className="grid min-h-screen place-content-center gap-4 p-6 text-center"><p>Your quiz is safe on this device. Sign in again to continue.</p><Button onClick={() => void authClient.signIn.social({ provider: 'google', callbackURL: '/running' })}>Sign in again</Button></main>;
+  const accountMismatch = Boolean(initialState?.ownerId && effectiveOwnerId !== initialState.ownerId);
   if (accountMismatch) return <main className="grid min-h-screen place-content-center gap-4 p-6 text-center"><p>This quiz belongs to another account.</p><Button onClick={() => navigate('/start', { replace: true })}>Go to my modules</Button></main>;
 
   if (!currentQuestion) {

@@ -62,6 +62,20 @@ async function api(path: string, cookie?: string, init: RequestInit = {}) {
 }
 
 describe('account-owned module API', () => {
+  it('rejects a stale module revision and returns the current server module', async () => {
+    const alice = await signUp('revision-alice');
+    const created = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify({ ...moduleBody, title: 'Revision module', hash: 'revision-hash' }) });
+    const module = (await created.json() as { module: { id: string; revision: string } }).module;
+    const updated = await api(`/api/modules/${module.id}`, alice, { method: 'PATCH', body: JSON.stringify({ categoryId: 'first', expectedRevision: module.revision }) });
+    expect(updated.status).toBe(200);
+
+    const conflict = await api(`/api/modules/${module.id}`, alice, { method: 'PATCH', body: JSON.stringify({ categoryId: 'stale', expectedRevision: module.revision }) });
+    expect(conflict.status).toBe(409);
+    const body = await conflict.json() as { error: { code: string; currentModule: { categoryId: string; revision: string } } };
+    expect(body.error.code).toBe('VERSION_CONFLICT');
+    expect(body.error.currentModule.categoryId).toBe('first');
+    expect(body.error.currentModule.revision).not.toBe(module.revision);
+  });
   beforeEach(async () => {
     await reset();
     await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);

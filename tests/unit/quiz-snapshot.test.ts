@@ -8,7 +8,7 @@ const snapshot: QuizSnapshot = {
 };
 
 describe('quiz snapshots', () => {
-  beforeEach(() => sessionStorage.clear());
+  beforeEach(() => localStorage.clear());
 
   it('stores and restores data only for the owner', () => {
     saveQuizSnapshot(snapshot);
@@ -17,12 +17,12 @@ describe('quiz snapshots', () => {
   });
 
   it('rejects a snapshot with mismatched embedded ownership', () => {
-    sessionStorage.setItem(snapshotKey('alice'), JSON.stringify({ ...snapshot, ownerId: 'bob' }));
+    localStorage.setItem(snapshotKey('alice'), JSON.stringify({ ...snapshot, ownerId: 'bob' }));
     expect(loadQuizSnapshot('alice')).toBeNull();
   });
 
   it('handles corrupt data and removal', () => {
-    sessionStorage.setItem(snapshotKey('alice'), '{');
+    localStorage.setItem(snapshotKey('alice'), '{');
     expect(loadQuizSnapshot('alice')).toBeNull();
     saveQuizSnapshot(snapshot);
     removeQuizSnapshot('alice');
@@ -33,11 +33,11 @@ describe('quiz snapshots', () => {
     saveQuizSnapshot(snapshot);
     const bobSnapshot = { ...snapshot, ownerId: 'bob', running: { ...snapshot.running, ownerId: 'bob' } };
     saveQuizSnapshot(bobSnapshot);
-    sessionStorage.setItem(activeOwnerKey, 'alice');
+    localStorage.setItem(activeOwnerKey, 'alice');
 
     clearActiveQuizSnapshot();
 
-    expect(sessionStorage.getItem(activeOwnerKey)).toBeNull();
+    expect(localStorage.getItem(activeOwnerKey)).toBeNull();
     expect(loadQuizSnapshot('alice')).toBeNull();
     expect(loadQuizSnapshot('bob')).toEqual(bobSnapshot);
   });

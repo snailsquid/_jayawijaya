@@ -5,13 +5,14 @@ import { PageHeader, PageShell } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { authClient, type AppUser } from '@/lib/auth-client';
+import { authClient } from '@/lib/auth-client';
 import { paymentsApi } from '@/lib/api';
 import { clearActiveQuizSnapshot } from '@/lib/quiz-snapshot';
 import { getSubscriptionSummary } from '@/lib/subscription';
 import type { Payment } from '@/types/payment';
+import type { WorkspaceIdentity } from '@/types/offline';
 
-export function Account({ user }: { user: AppUser }) {
+export function Account({ user }: { user: WorkspaceIdentity }) {
   const navigate = useNavigate();
   const [payments, setPayments] = useState<Payment[]>([]);
   const initials = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';

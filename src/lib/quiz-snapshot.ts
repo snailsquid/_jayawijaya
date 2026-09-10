@@ -1,4 +1,5 @@
 import type { Module, Question, QuizMode, QuizState } from '../types/quiz';
+import { removeDurableQuizSnapshot, saveDurableQuizSnapshot } from './offline-db';
 
 export interface RunningState {
   ownerId: string;
@@ -21,11 +22,12 @@ export const snapshotKey = (ownerId: string) => `jayawijaya-running:${ownerId}`;
 export const activeOwnerKey = 'jayawijaya-active-owner';
 
 export function saveQuizSnapshot(snapshot: QuizSnapshot) {
-  sessionStorage.setItem(snapshotKey(snapshot.ownerId), JSON.stringify(snapshot));
+  localStorage.setItem(snapshotKey(snapshot.ownerId), JSON.stringify(snapshot));
+  void saveDurableQuizSnapshot(snapshot);
 }
 
 export function loadQuizSnapshot(ownerId: string): QuizSnapshot | null {
-  const saved = sessionStorage.getItem(snapshotKey(ownerId));
+  const saved = localStorage.getItem(snapshotKey(ownerId));
   if (!saved) return null;
   try {
     const parsed = JSON.parse(saved) as QuizSnapshot;
@@ -36,11 +38,12 @@ export function loadQuizSnapshot(ownerId: string): QuizSnapshot | null {
 }
 
 export function removeQuizSnapshot(ownerId: string) {
-  sessionStorage.removeItem(snapshotKey(ownerId));
+  localStorage.removeItem(snapshotKey(ownerId));
+  void removeDurableQuizSnapshot(ownerId);
 }
 
 export function clearActiveQuizSnapshot() {
-  const ownerId = sessionStorage.getItem(activeOwnerKey);
+  const ownerId = localStorage.getItem(activeOwnerKey);
   if (ownerId) removeQuizSnapshot(ownerId);
-  sessionStorage.removeItem(activeOwnerKey);
+  localStorage.removeItem(activeOwnerKey);
 }

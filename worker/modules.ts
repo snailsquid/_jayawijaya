@@ -3,7 +3,13 @@ import type { Env } from './env';
 import { assertWithinQuota, limitsFor, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
 
 interface AuthUser { id: string; role?: string; tier?: string }
-type ModuleBody = ModuleInput & { visibility?: unknown; enabled?: unknown };
+type ModuleBody = ModuleInput & { visibility?: unknown; enabled?: unknown; expectedRevision?: unknown };
+
+class ModuleConflictError extends ModuleValidationError {
+  constructor(public readonly currentModule: ReturnType<typeof fromRow>) {
+    super('Module changed on another device. Choose which version to keep.', 409, 'VERSION_CONFLICT');
+  }
+}
 
 const MUTATIONS_PER_MINUTE = 120;
 const json = (body: unknown, status = 200) => Response.json(body, { status });
@@ -40,6 +46,7 @@ async function readBody(request: Request): Promise<ModuleBody> {
   try {
     const raw = await request.text();
     if (new TextEncoder().encode(raw).byteLength > MODULE_LIMITS.uploadBytes) throw new ModuleValidationError('Request exceeds the 2 MB upload limit.', 413, 'MODULE_TOO_LARGE');
+    if (!raw.trim()) return {};
     return JSON.parse(raw) as ModuleBody;
   } catch (error) {
     if (error instanceof ModuleValidationError) throw error;
@@ -67,10 +74,12 @@ function fromRow(row: Record<string, unknown>) {
     shareToken: row.is_owner && row.visibility === 'live' ? row.share_token as string : undefined,
     shareCode: row.visibility === 'live' ? row.share_code as string : undefined,
     subscribed: Boolean(row.subscribed), frozen: Boolean(row.frozen), currentVersion, latestVersion,
+    revision: `${currentVersion}:${String(row.library_updated_at ?? '')}:${String(row.library_category ?? '')}`,
   };
 }
 
 const librarySelect = `SELECT m.id, m.owner_id, m.visibility, m.share_token, m.share_code, l.category_id library_category,
+  l.updated_at library_updated_at,
   l.subscribed, l.current_version, v.title, v.description, v.content_hash, v.questions_json,
   CASE WHEN m.owner_id = ? THEN 1 ELSE 0 END is_owner,
   CASE WHEN l.subscribed = 1 AND (m.visibility <> 'live' OR m.deleted_at IS NOT NULL) THEN 1 ELSE 0 END frozen,
@@ -92,6 +101,14 @@ async function createShareCode(env: Env): Promise<string> {
     if (!existing) return code;
   }
   throw new ModuleValidationError('Could not allocate a share code. Try again.', 503, 'SHARE_CODE_UNAVAILABLE');
+}
+
+async function assertExpectedRevision(env: Env, userId: string, moduleId: string, expected: unknown) {
+  if (typeof expected !== 'string') return;
+  const row = await getLibraryModule(env, userId, moduleId);
+  if (!row) throw new ModuleValidationError('Module not found.', 404, 'NOT_FOUND');
+  const current = fromRow(row);
+  if (current.revision !== expected) throw new ModuleConflictError(current);
 }
 
 async function listModules(env: Env, userId: string, autoSync = true) {
@@ -248,6 +265,7 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
     }
     if (request.method === 'PATCH' && path.length === 1) {
       const body = await readBody(request);
+      await assertExpectedRevision(env, user.id, moduleId, body.expectedRevision);
       if (body.categoryId !== undefined || body.category_id !== undefined) {
         const category = body.categoryId ?? body.category_id;
         if (category !== null && typeof category !== 'string') throw new ModuleValidationError('Category must be text.');
@@ -288,6 +306,8 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       return json({ modules, updated: modules.filter(item => versions.get(item.id) !== item.currentVersion).length });
     }
     if (request.method === 'DELETE' && path.length === 1) {
+      const body = await readBody(request);
+      await assertExpectedRevision(env, user.id, moduleId, body.expectedRevision);
       const row = await getLibraryModule(env, user.id, moduleId);
       if (!row) throw new ModuleValidationError('Module not found.', 404, 'NOT_FOUND');
       if (row.owner_id === user.id) await env.DB.batch([
@@ -300,6 +320,7 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
     }
     return json({ error: { code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed.' } }, 405);
   } catch (error) {
+    if (error instanceof ModuleConflictError) return json({ error: { code: error.code, message: error.message, currentModule: error.currentModule } }, error.status);
     if (error instanceof ModuleValidationError) return json({ error: { code: error.code, message: error.message } }, error.status);
     if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) return json({ error: { code: 'DUPLICATE_MODULE', message: 'This module already exists.' } }, 409);
     console.error(error); return json({ error: { code: 'INTERNAL_ERROR', message: 'Something went wrong.' } }, 500);

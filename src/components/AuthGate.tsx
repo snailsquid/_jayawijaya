@@ -1,22 +1,34 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { authClient, type AppUser } from '../lib/auth-client';
+import type { WorkspaceIdentity } from '../types/offline';
+import { activeWorkspace, cacheAccount, cachedAccount, setActiveWorkspace } from '../lib/workspace';
+import { guestWorkspace } from '../lib/offline-db';
 import { PageShell } from './app-shell';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader } from './ui/card';
 
-export function AuthGate({ children, callbackURL = '/start' }: { children: (user: AppUser) => ReactNode; callbackURL?: string }) {
+export function AuthGate({ children, callbackURL = '/start', allowGuest = false }: {
+  children: (user: WorkspaceIdentity) => ReactNode;
+  callbackURL?: string;
+  allowGuest?: boolean;
+}) {
   const { data, isPending } = authClient.useSession();
+  const [guest, setGuest] = useState(() => allowGuest && activeWorkspace().kind === 'guest');
+  const offlineAccount = !navigator.onLine ? cachedAccount() : null;
 
+  if (data?.user) return children(cacheAccount(data.user as unknown as AppUser));
+  if (allowGuest && guest) return children(guestWorkspace);
+  if (offlineAccount) { setActiveWorkspace(offlineAccount); return children(offlineAccount); }
   if (isPending) return <main className="grid min-h-screen place-items-center p-6 font-semibold">Loading account…</main>;
-  if (!data?.user) {
-    return (
-      <PageShell className="grid min-h-screen max-w-md place-items-center">
-        <Card className="w-full text-center">
-          <CardHeader><h1 className="text-xl font-semibold">Sign in</h1><CardDescription>Your modules are private and linked to your Google account.</CardDescription></CardHeader>
-          <CardContent><Button className="w-full" onClick={() => void authClient.signIn.social({ provider: 'google', callbackURL })}>Continue with Google</Button></CardContent>
-        </Card>
-      </PageShell>
-    );
-  }
-  return children(data.user as unknown as AppUser);
+  return (
+    <PageShell className="grid min-h-screen max-w-md place-items-center">
+      <Card className="w-full text-center">
+        <CardHeader><h1 className="text-xl font-semibold">Choose a workspace</h1><CardDescription>Sign in for cloud sync, or use a private guest workspace stored on this device.</CardDescription></CardHeader>
+        <CardContent className="space-y-3">
+          <Button className="w-full" onClick={() => void authClient.signIn.social({ provider: 'google', callbackURL })}>Continue with Google</Button>
+          {allowGuest && <Button className="w-full" variant="secondary" onClick={() => { setActiveWorkspace(guestWorkspace); setGuest(true); }}>Continue as guest</Button>}
+        </CardContent>
+      </Card>
+    </PageShell>
+  );
 }
