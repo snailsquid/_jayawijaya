@@ -31,7 +31,15 @@ describe('useModules usage', () => {
     api.list.mockResolvedValue({
       modules: [original],
       usage: { moduleCount: 1, usedBytes: bytes(original) },
+      limits: { modules: 1_000, storageBytes: 500 * 1024 * 1024 },
     });
+  });
+
+  it('uses the server-derived quota limits', async () => {
+    const { result } = renderHook(() => useModules());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.limits).toEqual({ modules: 1_000, storageBytes: 500 * 1024 * 1024 });
   });
 
   it('updates storage usage when a persisted module changes size', async () => {

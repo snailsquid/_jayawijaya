@@ -25,7 +25,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const modulesApi = {
-  list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number } }>('/api/modules'),
+  list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number }; limits: { modules: number; storageBytes: number } }>('/api/modules'),
   create: (module: Module) => request<{ module: Module }>('/api/modules', { method: 'POST', body: JSON.stringify(module) }),
   update: (id: string, patch: Partial<Module>) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   remove: (id: string) => request<void>(`/api/modules/${encodeURIComponent(id)}`, { method: 'DELETE' }),

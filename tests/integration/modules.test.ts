@@ -116,6 +116,24 @@ describe('account-owned module API', () => {
     expect(await response.json()).toMatchObject({ error: { code: 'MODULE_QUOTA_REACHED' } });
   });
 
+  it('grants Pro quotas while a successful payment entitlement is active', async () => {
+    const alice = await signUp('paid-alice');
+    const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'paid-alice@example.test'").first<{ id: string }>();
+    await Promise.all(Array.from({ length: MODULE_LIMITS.free.modules }, (_, index) =>
+      insertModule(user!.id, `paid-seed-${index}`, `paid-hash-${index}`, 2, [])));
+    const now = new Date().toISOString();
+    await env.DB.prepare(`INSERT INTO payments
+      (id, order_id, user_id, product_code, amount, entitlement_days, status, created_at, updated_at, verified_at)
+      VALUES ('paid-pass', 'paid-order', ?, 'pro-pass-30d', 15000, 30, 'succeeded', ?, ?, ?)`)
+      .bind(user!.id, now, now, now).run();
+
+    const listed = await api('/api/modules', alice);
+    expect(await listed.json()).toMatchObject({ limits: MODULE_LIMITS.pro });
+    expect((await api('/api/modules', alice, {
+      method: 'POST', body: JSON.stringify({ ...moduleBody, hash: 'paid-new-hash' }),
+    })).status).toBe(201);
+  });
+
   it('atomically enforces the module count quota across concurrent creates', async () => {
     const alice = await signUp('alice');
     const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'alice@example.test'").first<{ id: string }>();
