@@ -1,17 +1,25 @@
 import type { Auth } from './auth';
 import type { Env } from './env';
-import { assertWithinQuota, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
+import { assertWithinQuota, limitsFor, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
 
 interface AuthUser { id: string; role?: string; tier?: string }
 type ModuleBody = ModuleInput & { visibility?: unknown; enabled?: unknown };
 
 const MUTATIONS_PER_MINUTE = 120;
 const json = (body: unknown, status = 200) => Response.json(body, { status });
-const limitsFor = (tier?: string) => tier === 'pro' ? MODULE_LIMITS.pro : MODULE_LIMITS.free;
 
 async function currentUser(auth: Auth, request: Request): Promise<AuthUser | null> {
   const session = await auth.api.getSession({ headers: request.headers });
   return session?.user as AuthUser | null;
+}
+
+async function effectiveTier(env: Env, userId: string) {
+  const now = new Date().toISOString();
+  const active = await env.DB.prepare(`SELECT 1 ok FROM entitlements
+    WHERE user_id = ? AND active = 1 AND starts_at <= ?
+    AND (expires_at IS NULL OR expires_at > ?) LIMIT 1`)
+    .bind(userId, now, now).first();
+  return active ? 'pro' : 'free';
 }
 
 async function enforceMutationRateLimit(env: Env, userId: string) {
@@ -90,6 +98,9 @@ async function publish(env: Env, user: AuthUser, moduleId: string, body: ModuleB
     FROM modules m JOIN module_versions v ON v.module_id = m.id AND v.version = m.latest_version
     WHERE m.id = ? AND m.owner_id = ? AND m.deleted_at IS NULL`).bind(moduleId, user.id).first<Record<string, unknown>>();
   if (!source) throw new ModuleValidationError('Module not found.', 404, 'NOT_FOUND');
+  if (source.visibility === 'live' && !limitsFor(user.tier).liveModules) {
+    throw new ModuleValidationError('Publishing live modules requires VIP, VIP+, or MVP.', 403, 'PREMIUM_REQUIRED');
+  }
   const parsed = validateModuleInput({
     title: body.title ?? source.current_title, description: body.description ?? source.current_description,
     questions: body.questions ?? JSON.parse(String(source.current_questions)),
@@ -126,6 +137,7 @@ async function publish(env: Env, user: AuthUser, moduleId: string, body: ModuleB
 export async function handleModules(request: Request, env: Env, auth: Auth): Promise<Response> {
   const user = await currentUser(auth, request);
   if (!user) return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required.' } }, 401);
+  user.tier = await effectiveTier(env, user.id);
   const url = new URL(request.url);
   const path = url.pathname.split('/').filter(Boolean).slice(2).map(decodeURIComponent);
   try {
@@ -134,12 +146,17 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       await enforceMutationRateLimit(env, user.id);
     }
 
-    if (request.method === 'GET' && path.length === 0) return json({ modules: await listModules(env, user.id), usage: await usage(env, user.id) });
+    if (request.method === 'GET' && path.length === 0) return json({
+      modules: await listModules(env, user.id), usage: await usage(env, user.id), limits: limitsFor(user.tier),
+    });
 
     if (request.method === 'POST' && path.length === 0) {
       const body = await readBody(request); const parsed = validateModuleInput(body);
       if (!parsed.contentHash) throw new ModuleValidationError('Module content hash is required.');
       const visibility = body.visibility === 'live' ? 'live' : 'private';
+      if (visibility === 'live' && !limitsFor(user.tier).liveModules) {
+        throw new ModuleValidationError('Live module creation requires VIP, VIP+, or MVP.', 403, 'PREMIUM_REQUIRED');
+      }
       const stats = await usage(env, user.id); assertWithinQuota(user.tier, stats, parsed.byteSize);
       const id = crypto.randomUUID(); const now = new Date().toISOString();
       const token = visibility === 'live' ? crypto.randomUUID().replaceAll('-', '') : null;
@@ -232,6 +249,9 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
     if (request.method === 'POST' && path[1] === 'publish') return json({ module: await publish(env, user, moduleId, await readBody(request)) });
     if (request.method === 'POST' && path[1] === 'share') {
       const body = await readBody(request); const enabled = body.enabled === true; const token = enabled ? crypto.randomUUID().replaceAll('-', '') : null;
+      if (enabled && !limitsFor(user.tier).liveModules) {
+        throw new ModuleValidationError('Live module creation requires VIP, VIP+, or MVP.', 403, 'PREMIUM_REQUIRED');
+      }
       const result = await env.DB.prepare(`UPDATE modules SET visibility = ?, share_token = ?, updated_at = ?
         WHERE id = ? AND owner_id = ? AND deleted_at IS NULL`).bind(enabled ? 'live' : 'private', token, new Date().toISOString(), moduleId, user.id).run();
       if (!result.meta.changes) throw new ModuleValidationError('Module not found.', 404, 'NOT_FOUND');
