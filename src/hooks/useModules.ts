@@ -132,6 +132,9 @@ export function useModules(workspace: WorkspaceIdentity) {
   useEffect(() => { if (online) void syncNow(); }, [online, syncNow]);
 
   const commit = useCallback(async (update: (current: OfflineWorkspace) => OfflineWorkspace) => {
+    // Do not let an older synchronization snapshot overwrite a newer local edit.
+    // This is especially important while the initial account sync is still loading.
+    if (syncing.current) await syncing.current;
     const next = await updateWorkspace(workspace.id, current => {
       const changed = update(current);
       return { ...changed, usage: localUsage(changed.modules) };
