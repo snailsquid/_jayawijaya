@@ -40,7 +40,7 @@ test('account can upload and retain a private module', async ({ page }) => {
   await page.goto('/start');
   await expect(page.getByRole('button', { name: /account/i })).toBeVisible();
   await page.getByRole('button', { name: /new module/i }).click();
-  await page.getByRole('menuitem', { name: /create from code/i }).click();
+  await page.getByRole('menuitem', { name: /write yaml code/i }).click();
   await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: E2E Liver Module
 questions:
   - question: The liver is in which quadrant?
@@ -51,7 +51,7 @@ questions:
   await page.reload();
   await expect(page.getByText('E2E Liver Module')).toBeVisible();
   await page.getByRole('button', { name: /new module/i }).click();
-  await page.getByRole('menuitem', { name: /create from code/i }).click();
+  await page.getByRole('menuitem', { name: /write yaml code/i }).click();
   await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: E2E Liver Module
 questions:
   - question: The liver is in which quadrant?
@@ -84,7 +84,7 @@ test('an expired session does not remove an active quiz snapshot', async ({ page
   const original = await signUp(page, 'quiz-user');
   await page.goto('/start');
   await page.getByRole('button', { name: /new module/i }).click();
-  await page.getByRole('menuitem', { name: /create from code/i }).click();
+  await page.getByRole('menuitem', { name: /write yaml code/i }).click();
   await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: Session Module
 questions:
   - question: Continue after expiry?
