@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { authClient, type AppUser } from '../lib/auth-client';
 import type { WorkspaceIdentity } from '../types/offline';
-import { activeWorkspace, cacheAccount, cachedAccount, setActiveWorkspace } from '../lib/workspace';
+import { cacheAccount, cachedAccount, hasExplicitGuestWorkspace, setActiveWorkspace } from '../lib/workspace';
 import { guestWorkspace } from '../lib/offline-db';
 import { PageShell } from './app-shell';
 import { Button } from './ui/button';
@@ -13,7 +13,7 @@ export function AuthGate({ children, callbackURL = '/start', allowGuest = false 
   allowGuest?: boolean;
 }) {
   const { data, isPending } = authClient.useSession();
-  const [guest, setGuest] = useState(() => allowGuest && activeWorkspace().kind === 'guest');
+  const [guest, setGuest] = useState(() => allowGuest && hasExplicitGuestWorkspace());
   const offlineAccount = !navigator.onLine ? cachedAccount() : null;
 
   if (data?.user) return children(cacheAccount(data.user as unknown as AppUser));

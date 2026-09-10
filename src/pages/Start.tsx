@@ -8,7 +8,7 @@ import { ModeSelector } from "../components/ModeSelector";
 import { ModuleUploader } from "../components/ModuleUploader";
 import { ModuleList } from "../components/ModuleList";
 import { ModuleUploadModal } from "../components/ModuleUploadModal";
-import { ArrowLeft, BookOpen, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, RefreshCw, Search, Trash2, UserRound } from "lucide-react";
 import { PageHeader, PageShell } from "@/components/app-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -24,12 +24,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { authClient } from "../lib/auth-client";
 import type { WorkspaceIdentity } from "../types/offline";
-import { guestWorkspace } from "../lib/offline-db";
-import { setActiveWorkspace } from "../lib/workspace";
 import { ApiError } from "../lib/api";
-import { clearActiveQuizSnapshot } from "../lib/quiz-snapshot";
 
 export function Start({ user }: { user: WorkspaceIdentity }) {
   const navigate = useNavigate();
@@ -142,15 +138,6 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
     },
     [setSharing],
   );
-
-  const handleCopyLink = useCallback(async (module: Module) => {
-    const shareId = module.shareToken ?? module.shareCode;
-    if (!shareId) return;
-    await navigator.clipboard.writeText(
-      `${window.location.origin}${import.meta.env.BASE_URL}shared/${shareId}`,
-    );
-    setSyncMessage("Share link copied.");
-  }, []);
 
   const handleSyncAll = useCallback(async () => {
     try {
@@ -373,9 +360,25 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
       <PageHeader
         title="Quiz setup"
         actions={
-          <Button variant="outline" onClick={() => navigate("/")}>
-            <ArrowLeft /> Back
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/account")}
+              aria-label={user.kind === "account" ? "Account" : "Sign in"}
+            >
+              <UserRound />
+              <span className="hidden sm:inline">
+                {user.kind === "account" ? "Account" : "Sign in"}
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/")}
+              aria-label="Back to home"
+            >
+              <ArrowLeft /> <span className="hidden sm:inline">Back</span>
+            </Button>
+          </>
         }
       />
       <Card>
@@ -394,40 +397,8 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
           />
         </CardContent>
       </Card>
-      {hasSelection && (
-        <Alert>
-          <AlertTitle>
-            {config.selectedModuleIds.length} modules selected
-          </AlertTitle>
-          <AlertDescription className="mt-3 flex flex-wrap gap-2">
-            <Input
-              list="category-options"
-              value={assignCategory}
-              onChange={(e) => setAssignCategory(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleMassAssign()}
-              placeholder="Search or create category"
-              className="min-w-48 flex-1"
-            />
-            <datalist id="category-options">
-              {categories.map((cat) => (
-                <option key={cat} value={cat} />
-              ))}
-            </datalist>
-            <Button
-              variant="secondary"
-              onClick={handleMassAssign}
-              disabled={!assignCategory}
-            >
-              Assign
-            </Button>
-            <Button variant="destructive" onClick={handleMassDelete}>
-              <Trash2 /> Delete selected
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
       <Card>
-        <CardHeader className="flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Modules</CardTitle>
             <CardDescription>
@@ -437,7 +408,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
               {displayedLimits.storageMb} MB
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               disabled={!online || user.kind === "guest"}
@@ -450,40 +421,25 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
             >
               <RefreshCw /> Check updates
             </Button>
-              <ModuleUploader
-                onUpload={handleUpload}
-                existingModules={modules}
-                onImportCode={async code => { await subscribeByCode(code); }}
-              />
+            <ModuleUploader
+              onUpload={handleUpload}
+              existingModules={modules}
+              onImportCode={async (code) => { await subscribeByCode(code); }}
+            />
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Alert>
-            <AlertTitle>
-              {online
-                ? user.kind === "guest"
-                  ? "Guest workspace"
-                  : "Online"
-                : "Offline"}
-            </AlertTitle>
-            <AlertDescription className="mt-2 flex flex-wrap items-center gap-2">
-              {user.kind === "guest"
-                ? "Modules stay on this device."
-                : pendingCount
-                  ? `${pendingCount} change(s) waiting to sync.`
-                  : "All local changes are synchronized."}
-              {user.kind === "account" && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!online}
-                  onClick={() => void syncNow()}
-                >
+          {user.kind === "account" && pendingCount > 0 && (
+            <Alert>
+              <AlertTitle>Offline changes pending</AlertTitle>
+              <AlertDescription className="mt-2 flex flex-wrap items-center gap-2">
+                {pendingCount} change(s) waiting to sync.
+                <Button size="sm" variant="secondary" disabled={!online} onClick={() => void syncNow()}>
                   Retry sync
                 </Button>
-              )}
-            </AlertDescription>
-          </Alert>
+              </AlertDescription>
+            </Alert>
+          )}
           {syncErrors.map((message) => (
             <Alert key={message} variant="destructive">
               <AlertTitle>Sync needs attention</AlertTitle>
@@ -621,11 +577,38 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
               onDeleteModule={handleDeleteModule}
               onToggleCollapse={handleToggleCollapse}
               onToggleSelectAll={handleToggleSelectAll}
-              onSharing={(module) => void handleSharing(module)}
-              onCopyLink={(module) => void handleCopyLink(module)}
-              onReplace={setReplacement}
+              onShare={(module) => void handleSharing(module)}
+              onEdit={setReplacement}
               onSync={(id) => void syncModule(id)}
             />
+          )}
+          {hasSelection && (
+            <Alert>
+              <AlertTitle>
+                {config.selectedModuleIds.length} modules selected
+              </AlertTitle>
+              <AlertDescription className="mt-3 flex flex-wrap gap-2">
+                <Input
+                  list="category-options"
+                  value={assignCategory}
+                  onChange={(e) => setAssignCategory(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleMassAssign()}
+                  placeholder="Search or create category"
+                  className="min-w-48 flex-1"
+                />
+                <datalist id="category-options">
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
+                <Button variant="secondary" onClick={handleMassAssign} disabled={!assignCategory}>
+                  Assign
+                </Button>
+                <Button variant="destructive" onClick={handleMassDelete}>
+                  <Trash2 /> Delete selected
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
@@ -641,27 +624,6 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
           }}
         />
       )}
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium">
-          {user.email ?? "Guest"} · {user.tier ?? "local"}
-        </span>
-        <Button
-          variant="outline"
-          onClick={() => {
-            clearActiveQuizSnapshot();
-            setActiveWorkspace(guestWorkspace);
-            if (user.kind === "account")
-              void authClient.signOut({
-                fetchOptions: {
-                  onSuccess: () => navigate("/", { replace: true }),
-                },
-              });
-            else navigate("/", { replace: true });
-          }}
-        >
-          {user.kind === "account" ? "Log out" : "Leave guest workspace"}
-        </Button>
-      </div>
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <div>

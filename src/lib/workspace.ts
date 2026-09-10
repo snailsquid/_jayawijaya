@@ -29,3 +29,12 @@ export function activeWorkspace(): WorkspaceIdentity {
   try { return JSON.parse(localStorage.getItem(activeWorkspaceKey) ?? 'null') as WorkspaceIdentity | null ?? guestWorkspace; }
   catch { return guestWorkspace; }
 }
+
+export function hasExplicitGuestWorkspace(): boolean {
+  try {
+    const workspace = JSON.parse(localStorage.getItem(activeWorkspaceKey) ?? 'null') as WorkspaceIdentity | null;
+    return workspace?.kind === 'guest';
+  } catch {
+    return false;
+  }
+}
