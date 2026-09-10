@@ -1,18 +1,25 @@
 import type { Auth } from './auth';
 import type { Env } from './env';
-import { assertWithinQuota, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
-import { effectiveTier } from './entitlements';
+import { assertWithinQuota, limitsFor, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
 
 interface AuthUser { id: string; role?: string; tier?: string }
 type ModuleBody = ModuleInput & { visibility?: unknown; enabled?: unknown };
 
 const MUTATIONS_PER_MINUTE = 120;
 const json = (body: unknown, status = 200) => Response.json(body, { status });
-const limitsFor = (tier?: string) => tier === 'pro' ? MODULE_LIMITS.pro : MODULE_LIMITS.free;
 
 async function currentUser(auth: Auth, request: Request): Promise<AuthUser | null> {
   const session = await auth.api.getSession({ headers: request.headers });
   return session?.user as AuthUser | null;
+}
+
+async function effectiveTier(env: Env, userId: string) {
+  const now = new Date().toISOString();
+  const active = await env.DB.prepare(`SELECT 1 ok FROM entitlements
+    WHERE user_id = ? AND active = 1 AND starts_at <= ?
+    AND (expires_at IS NULL OR expires_at > ?) LIMIT 1`)
+    .bind(userId, now, now).first();
+  return active ? 'pro' : 'free';
 }
 
 async function enforceMutationRateLimit(env: Env, userId: string) {
@@ -97,12 +104,15 @@ async function listModules(env: Env, userId: string, autoSync = true) {
   return rows.results.map(fromRow);
 }
 
-async function publish(env: Env, user: AuthUser, tier: 'free' | 'pro', moduleId: string, body: ModuleBody) {
+async function publish(env: Env, user: AuthUser, moduleId: string, body: ModuleBody) {
   const source = await env.DB.prepare(`SELECT m.*, v.title current_title, v.description current_description,
     v.content_hash current_hash, v.questions_json current_questions, v.byte_size current_bytes
     FROM modules m JOIN module_versions v ON v.module_id = m.id AND v.version = m.latest_version
     WHERE m.id = ? AND m.owner_id = ? AND m.deleted_at IS NULL`).bind(moduleId, user.id).first<Record<string, unknown>>();
   if (!source) throw new ModuleValidationError('Module not found.', 404, 'NOT_FOUND');
+  if (source.visibility === 'live' && !limitsFor(user.tier).liveModules) {
+    throw new ModuleValidationError('Publishing live modules requires VIP, VIP+, or MVP.', 403, 'PREMIUM_REQUIRED');
+  }
   const parsed = validateModuleInput({
     title: body.title ?? source.current_title, description: body.description ?? source.current_description,
     questions: body.questions ?? JSON.parse(String(source.current_questions)),
@@ -118,7 +128,7 @@ async function publish(env: Env, user: AuthUser, tier: 'free' | 'pro', moduleId:
       AND COALESCE((SELECT SUM(other.byte_size) FROM modules other
         WHERE other.owner_id = ? AND other.id <> ? AND other.deleted_at IS NULL), 0) + ? <= ?`)
       .bind(parsed.title, parsed.description, parsed.contentHash, parsed.questionsJson, parsed.byteSize, parsed.questionCount, next, now, moduleId, user.id, source.latest_version,
-        user.id, moduleId, parsed.byteSize, limitsFor(tier).storageBytes),
+        user.id, moduleId, parsed.byteSize, limitsFor(user.tier).storageBytes),
     env.DB.prepare(`INSERT INTO module_versions
       (module_id, version, title, description, content_hash, questions_json, byte_size, question_count, created_at)
       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`).bind(moduleId, next, parsed.title, parsed.description, parsed.contentHash, parsed.questionsJson, parsed.byteSize, parsed.questionCount, now),
@@ -130,7 +140,7 @@ async function publish(env: Env, user: AuthUser, tier: 'free' | 'pro', moduleId:
   if (!updated || Number(updated.current_version) !== next) {
     const stillExists = await env.DB.prepare('SELECT 1 ok FROM modules WHERE id=? AND owner_id=? AND deleted_at IS NULL').bind(moduleId, user.id).first();
     if (!stillExists) throw new ModuleValidationError('Module not found.', 404, 'NOT_FOUND');
-    assertWithinQuota(tier, await usage(env, user.id), parsed.byteSize, Number(source.current_bytes));
+    assertWithinQuota(user.tier, await usage(env, user.id), parsed.byteSize, Number(source.current_bytes));
     throw new ModuleValidationError('Module was updated concurrently. Reload and try again.', 409, 'VERSION_CONFLICT');
   }
   return fromRow(updated);
@@ -139,7 +149,7 @@ async function publish(env: Env, user: AuthUser, tier: 'free' | 'pro', moduleId:
 export async function handleModules(request: Request, env: Env, auth: Auth): Promise<Response> {
   const user = await currentUser(auth, request);
   if (!user) return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required.' } }, 401);
-  const tier = await effectiveTier(env.DB, user.id, user.tier);
+  user.tier = await effectiveTier(env, user.id);
   const url = new URL(request.url);
   const path = url.pathname.split('/').filter(Boolean).slice(2).map(decodeURIComponent);
   try {
@@ -148,13 +158,18 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       await enforceMutationRateLimit(env, user.id);
     }
 
-    if (request.method === 'GET' && path.length === 0) return json({ modules: await listModules(env, user.id), usage: await usage(env, user.id), limits: limitsFor(tier) });
+    if (request.method === 'GET' && path.length === 0) return json({
+      modules: await listModules(env, user.id), usage: await usage(env, user.id), limits: limitsFor(user.tier),
+    });
 
     if (request.method === 'POST' && path.length === 0) {
       const body = await readBody(request); const parsed = validateModuleInput(body);
       if (!parsed.contentHash) throw new ModuleValidationError('Module content hash is required.');
       const visibility = body.visibility === 'live' ? 'live' : 'private';
-      const stats = await usage(env, user.id); assertWithinQuota(tier, stats, parsed.byteSize);
+      if (visibility === 'live' && !limitsFor(user.tier).liveModules) {
+        throw new ModuleValidationError('Live module creation requires VIP, VIP+, or MVP.', 403, 'PREMIUM_REQUIRED');
+      }
+      const stats = await usage(env, user.id); assertWithinQuota(user.tier, stats, parsed.byteSize);
       const id = crypto.randomUUID(); const now = new Date().toISOString();
       const token = visibility === 'live' ? crypto.randomUUID().replaceAll('-', '') : null;
       const shareCode = visibility === 'live' ? await createShareCode(env) : null;
@@ -191,14 +206,14 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
           WHERE (SELECT COUNT(*) FROM module_library WHERE user_id = ?) < ?
           AND (SELECT COALESCE(SUM(byte_size),0) FROM modules WHERE owner_id = ? AND deleted_at IS NULL) + ? <= ?`)
           .bind(id, user.id, parsed.title, parsed.description, parsed.contentHash, parsed.questionsJson, parsed.byteSize,
-            parsed.questionCount, now, now, visibility, token, shareCode, user.id, limitsFor(tier).modules, user.id, parsed.byteSize, limitsFor(tier).storageBytes),
+            parsed.questionCount, now, now, visibility, token, shareCode, user.id, limitsFor(user.tier).modules, user.id, parsed.byteSize, limitsFor(user.tier).storageBytes),
         env.DB.prepare(`INSERT INTO module_versions SELECT ?, 1, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`)
           .bind(id, parsed.title, parsed.description, parsed.contentHash, parsed.questionsJson, parsed.byteSize, parsed.questionCount, now),
         env.DB.prepare(`INSERT INTO module_library SELECT ?, ?, 1, ?, 0, ?, ? WHERE changes() > 0`)
           .bind(user.id, id, parsed.categoryId, now, now),
       ]);
       const row = await getLibraryModule(env, user.id, id);
-      if (!row) { assertWithinQuota(tier, await usage(env, user.id), parsed.byteSize); throw new ModuleValidationError('Module could not be created.', 409, 'MODULE_QUOTA_REACHED'); }
+      if (!row) { assertWithinQuota(user.tier, await usage(env, user.id), parsed.byteSize); throw new ModuleValidationError('Module could not be created.', 409, 'MODULE_QUOTA_REACHED'); }
       return json({ module: fromRow(row) }, 201);
     }
 
@@ -218,7 +233,7 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
         try { inserted = await env.DB.prepare(`INSERT INTO module_library
           (user_id,module_id,current_version,subscribed,created_at,updated_at)
           SELECT ?,?,?,1,?,? WHERE (SELECT COUNT(*) FROM module_library WHERE user_id = ?) < ?`)
-          .bind(user.id, source.id, source.current_version, now, now, user.id, limitsFor(tier).modules).run(); }
+          .bind(user.id, source.id, source.current_version, now, now, user.id, limitsFor(user.tier).modules).run(); }
         catch (error) { if (error instanceof Error && error.message.includes('UNIQUE')) throw new ModuleValidationError('Already subscribed.', 409, 'ALREADY_SUBSCRIBED'); throw error; }
         if (!inserted.meta.changes) throw new ModuleValidationError('Module count quota reached.', 409, 'MODULE_QUOTA_REACHED');
         return json({ module: fromRow((await getLibraryModule(env, user.id, String(source.id)))!) }, 201);
@@ -242,13 +257,15 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
         if (!result.meta.changes) throw new ModuleValidationError('Module not found.', 404, 'NOT_FOUND');
       }
       const contentChange = body.title !== undefined || body.description !== undefined || body.questions !== undefined || body.hash !== undefined;
-      const module = contentChange ? await publish(env, user, tier, moduleId, body) : fromRow((await getLibraryModule(env, user.id, moduleId))!);
+      const module = contentChange ? await publish(env, user, moduleId, body) : fromRow((await getLibraryModule(env, user.id, moduleId))!);
       return json({ module });
     }
-    if (request.method === 'POST' && path[1] === 'publish') return json({ module: await publish(env, user, tier, moduleId, await readBody(request)) });
+    if (request.method === 'POST' && path[1] === 'publish') return json({ module: await publish(env, user, moduleId, await readBody(request)) });
     if (request.method === 'POST' && path[1] === 'share') {
-      const body = await readBody(request); const enabled = body.enabled === true;
-      const token = enabled ? crypto.randomUUID().replaceAll('-', '') : null;
+      const body = await readBody(request); const enabled = body.enabled === true; const token = enabled ? crypto.randomUUID().replaceAll('-', '') : null;
+      if (enabled && !limitsFor(user.tier).liveModules) {
+        throw new ModuleValidationError('Live module creation requires VIP, VIP+, or MVP.', 403, 'PREMIUM_REQUIRED');
+      }
       const shareCode = enabled ? await createShareCode(env) : null;
       const result = await env.DB.prepare(`UPDATE modules SET visibility = ?, share_token = ?, share_code = ?, updated_at = ?
         WHERE id = ? AND owner_id = ? AND deleted_at IS NULL`).bind(enabled ? 'live' : 'private', token, shareCode, new Date().toISOString(), moduleId, user.id).run();

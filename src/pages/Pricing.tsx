@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, CalendarDays, CheckCircle2, CreditCard, RefreshCw, Sparkles, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, CreditCard, RefreshCw, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -9,9 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { PageHeader, PageShell } from '@/components/app-shell';
 import { paymentsApi } from '@/lib/api';
 import { loadSnap } from '@/lib/snap';
-import { getSubscriptionSummary } from '@/lib/subscription';
-import type { AppUser } from '@/lib/auth-client';
-import type { MidtransClientConfig, Payment, PaymentProduct, PaymentStatus } from '@/types/payment';
+import type { ActiveEntitlement, MidtransClientConfig, Payment, PaymentProduct, PaymentStatus } from '@/types/payment';
 
 const labels: Record<PaymentStatus, string> = {
   created: 'Creating', pending: 'Pending', succeeded: 'Verified', failed: 'Failed',
@@ -20,10 +18,11 @@ const labels: Record<PaymentStatus, string> = {
 
 const money = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
 
-export function Pricing({ user }: { user: AppUser }) {
+export function Pricing() {
   const navigate = useNavigate();
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [product, setProduct] = useState<PaymentProduct | null>(null);
+  const [products, setProducts] = useState<PaymentProduct[] | null>(null);
+  const [entitlement, setEntitlement] = useState<ActiveEntitlement | null>(null);
   const [config, setConfig] = useState<MidtransClientConfig | null>(null);
   const [busy, setBusy] = useState(false);
   const [canceling, setCanceling] = useState<string | null>(null);
@@ -34,7 +33,8 @@ export function Pricing({ user }: { user: AppUser }) {
   const load = useCallback(async () => {
     const result = await paymentsApi.list();
     setPayments(result.payments);
-    setProduct(result.product);
+    setProducts(result.products);
+    setEntitlement(result.entitlement);
     setConfig(result.config);
   }, []);
 
@@ -45,15 +45,14 @@ export function Pricing({ user }: { user: AppUser }) {
       const { payment } = await paymentsApi.get(orderId);
       setPayments(current => [payment, ...current.filter(item => item.orderId !== payment.orderId)]);
       setMessage(payment.status === 'succeeded'
-        ? 'Payment verified. Your 30-day Pro pass is active.'
+        ? 'Payment verified. Your premium benefits are active.'
         : `Payment status: ${labels[payment.status]}.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not verify payment status.');
     }
   }, []);
 
-  const openPayment = async () => {
-    if (!product) return;
+  const openPayment = async (product: PaymentProduct) => {
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -95,51 +94,30 @@ export function Pricing({ user }: { user: AppUser }) {
     }
   };
 
-  const active = payments.find(payment => payment.status === 'created' || payment.status === 'pending');
-  const subscription = getSubscriptionSummary(payments);
-  const accountIsPro = subscription.active || user.tier === 'pro';
-  const hasExpiredPass = !subscription.active && subscription.expiresAt !== null;
-  const expirationLabel = subscription.expiresAt?.toLocaleDateString('id-ID', { dateStyle: 'long' });
-
   return (
     <PageShell>
       <PageHeader title="Plan and billing" actions={<Button variant="outline" onClick={() => navigate('/account')}><ArrowLeft /> Account</Button>} />
-      <Alert variant={accountIsPro ? 'default' : undefined}>
-        {accountIsPro ? <Sparkles /> : <CalendarDays />}
-        <AlertTitle>{accountIsPro ? 'Your Pro pass is active' : hasExpiredPass ? 'Your Pro pass has expired' : 'You are on the Free plan'}</AlertTitle>
-        <AlertDescription>
-          {subscription.active
-            ? `${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? 'day' : 'days'} remaining · Access ends ${expirationLabel}.`
-            : user.tier === 'pro'
-              ? 'Your account has Pro access. Contact support if your renewal date is missing.'
-              : hasExpiredPass
-                ? `Your previous access ended ${expirationLabel}. Renew to regain Pro access.`
-                : 'Upgrade with a one-time payment. There is no automatic renewal.'}
-        </AlertDescription>
-      </Alert>
-      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><CreditCard /> 30-day pass</CardTitle>
-            <CardDescription>{accountIsPro ? 'Extend your access with another one-time payment.' : 'One-time payment. No recurring charges.'}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-4xl font-bold">{product ? money.format(product.amount) : 'Rp15.000'}</p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>• 30 days of Pro access</li>
-              <li>• Secure checkout through Midtrans Snap</li>
-              <li>• Manual renewal — cancel anytime by simply not renewing</li>
-            </ul>
-            {message && <Alert><CheckCircle2 /><AlertTitle>Payment update</AlertTitle><AlertDescription>{message}</AlertDescription></Alert>}
-            {error && <Alert variant="destructive"><AlertTitle>Payment unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" size="lg" disabled={busy || !product || !config} onClick={() => void openPayment()}>
-              {busy ? <><RefreshCw className="animate-spin" /> Opening…</> : active ? 'Resume payment' : accountIsPro ? 'Extend Pro access' : 'Upgrade to Pro'}
-            </Button>
-          </CardFooter>
-        </Card>
-
+      <div className="space-y-6">
+        {entitlement && <Alert><CheckCircle2 /><AlertTitle>{entitlement.plan} is active</AlertTitle><AlertDescription>{entitlement.expiresAt ? `Access through ${new Date(entitlement.expiresAt).toLocaleDateString('id-ID')}.` : 'Lifetime access.'}</AlertDescription></Alert>}
+        {message && <Alert><CheckCircle2 /><AlertTitle>Payment update</AlertTitle><AlertDescription>{message}</AlertDescription></Alert>}
+        {error && <Alert variant="destructive"><AlertTitle>Payment unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader><CardTitle>Basic</CardTitle><CardDescription>Free</CardDescription></CardHeader>
+            <CardContent><ul className="space-y-2 text-sm text-muted-foreground"><li>• 10 modules</li><li>• Private modules</li></ul></CardContent>
+          </Card>
+          {products === null && !error && <Card className="md:col-span-2 lg:col-span-3"><CardContent className="flex items-center gap-2 py-8 text-muted-foreground"><RefreshCw className="animate-spin" /> Loading verified prices…</CardContent></Card>}
+          {products?.map(product => {
+            const active = payments.find(payment => payment.productCode === product.code && (payment.status === 'created' || payment.status === 'pending'));
+            const hasLifetime = entitlement?.expiresAt === null;
+            const duration = product.duration.unit === 'lifetime' ? 'Lifetime' : product.duration.value === 1 ? '1 month' : `${product.duration.value} months`;
+            return <Card key={product.code}>
+              <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard /> {product.plan}</CardTitle><CardDescription>{duration} · one-time payment</CardDescription></CardHeader>
+              <CardContent className="space-y-4"><p className="text-3xl font-bold">{money.format(product.amount)}</p><ul className="space-y-2 text-sm text-muted-foreground">{product.benefits.map(benefit => <li key={benefit}>• {benefit}</li>)}</ul></CardContent>
+              <CardFooter><Button className="w-full" disabled={busy || !config || hasLifetime} onClick={() => void openPayment(product)}>{hasLifetime ? 'Lifetime access active' : busy ? <><RefreshCw className="animate-spin" /> Opening…</> : active ? 'Resume payment' : 'Choose plan'}</Button></CardFooter>
+            </Card>;
+          })}
+        </div>
         <Card>
           <CardHeader><CardTitle>Payment history</CardTitle><CardDescription>Status is verified by the server, not the browser callback.</CardDescription></CardHeader>
           <CardContent className="space-y-3">

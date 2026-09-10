@@ -37,13 +37,14 @@ describe('module policy', () => {
   });
 
   it('enforces free count and storage quotas at their boundaries', () => {
-    expect(() => assertWithinQuota('free', { moduleCount: 99, usedBytes: 0 }, 1)).not.toThrow();
-    expect(() => assertWithinQuota('free', { moduleCount: 100, usedBytes: 0 }, 1)).toThrow('Module count quota');
+    expect(MODULE_LIMITS.free.modules).toBe(10);
+    expect(() => assertWithinQuota('free', { moduleCount: 9, usedBytes: 0 }, 1)).not.toThrow();
+    expect(() => assertWithinQuota('free', { moduleCount: 10, usedBytes: 0 }, 1)).toThrow('Module count quota');
     expect(() => assertWithinQuota('free', { moduleCount: 1, usedBytes: MODULE_LIMITS.free.storageBytes }, 1)).toThrow('Storage quota');
   });
 
   it('allows updates to replace their previous bytes', () => {
-    expect(() => assertWithinQuota('free', { moduleCount: 100, usedBytes: 100 }, 100, 100)).not.toThrow();
+    expect(() => assertWithinQuota('free', { moduleCount: 10, usedBytes: 100 }, 100, 100)).not.toThrow();
   });
 
   it('normalizes optional fields and unknown tiers', () => {
@@ -52,7 +53,9 @@ describe('module policy', () => {
     expect(() => assertWithinQuota('unknown', { moduleCount: 0, usedBytes: 0 }, 1)).not.toThrow();
     expect(validateModuleInput({ ...validModule, description: 'Description', categoryId: null })).toMatchObject({ description: 'Description', categoryId: null });
     expect(validateModuleInput({ title: 'No hash', questions: validModule.questions }).contentHash).toBe('');
-    expect(() => assertWithinQuota('pro', { moduleCount: 100, usedBytes: 0 }, 1)).not.toThrow();
+    expect(MODULE_LIMITS.pro.modules).toBe(200);
+    expect(() => assertWithinQuota('pro', { moduleCount: 199, usedBytes: 0 }, 1)).not.toThrow();
+    expect(() => assertWithinQuota('pro', { moduleCount: 200, usedBytes: 0 }, 1)).toThrow('Module count quota');
   });
 
   it('rejects modules whose serialized questions exceed 2 MB', () => {

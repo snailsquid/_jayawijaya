@@ -18,7 +18,7 @@ function App() {
         <Route path="/running" element={<Running />} />
         <Route path="/end" element={<End />} />
         <Route path="/how-to-create-modules" element={<HowToModules />} />
-        <Route path="/pricing" element={<AuthGate callbackURL="/pricing">{user => <Pricing key={user.id} user={user} />}</AuthGate>} />
+        <Route path="/pricing" element={<AuthGate callbackURL="/pricing">{user => <Pricing key={user.id} />}</AuthGate>} />
         <Route path="/account" element={<AuthGate callbackURL="/account">{user => <Account key={user.id} user={user} />}</AuthGate>} />
         <Route path="/shared/:token" element={<AuthGate>{() => <SharedModule />}</AuthGate>} />
       </Routes>

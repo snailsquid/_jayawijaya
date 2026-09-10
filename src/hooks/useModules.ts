@@ -9,7 +9,7 @@ export function useModules() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [usage, setUsage] = useState({ moduleCount: 0, usedBytes: 0 });
-  const [limits, setLimits] = useState({ modules: 100, storageBytes: 25 * 1024 * 1024 });
+  const [limits, setLimits] = useState({ modules: 10, storageBytes: 25 * 1024 * 1024, liveModules: false });
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -17,7 +17,7 @@ export function useModules() {
       const response = await modulesApi.list();
       setModules(response.modules);
       setUsage(response.usage);
-      setLimits(response.limits ?? { modules: 100, storageBytes: 25 * 1024 * 1024 });
+      setLimits(response.limits);
       setError('');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to load modules.');
@@ -60,7 +60,7 @@ export function useModules() {
     setModules(previous => {
       const removed = previous.find(module => module.id === id);
       if (removed) {
-        const bytes = removed.subscribed ? 0 : moduleBytes(removed);
+        const bytes = moduleBytes(removed);
         setUsage(current => ({ moduleCount: Math.max(0, current.moduleCount - 1), usedBytes: Math.max(0, current.usedBytes - bytes) }));
       }
       return previous.filter(module => module.id !== id);
