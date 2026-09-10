@@ -198,16 +198,18 @@ _jayawijaya/
 2. In Google Cloud Console, create an OAuth web client. Add
    `https://YOUR_HOST/api/auth/callback/google` as an authorized redirect URI.
 3. Set `BETTER_AUTH_URL` in `wrangler.jsonc` to the exact public origin.
-4. Store secrets in Cloudflare; do not add them to `wrangler.jsonc`:
+4. For authenticated preview deployments, set `OAUTH_PROXY_TRUSTED_ORIGINS` to a comma-separated list of exact origins or narrowly scoped wildcard patterns. The checked-in Wrangler configuration trusts Cloudflare version previews matching `https://*-jayawijaya.arkk.workers.dev`; do not broaden this to a shared hosting provider's entire domain.
+5. Store secrets in Cloudflare; do not add them to `wrangler.jsonc`:
 
 ```bash
 wrangler secret put GOOGLE_CLIENT_ID
 wrangler secret put GOOGLE_CLIENT_SECRET
 wrangler secret put BETTER_AUTH_SECRET
+wrangler secret put OAUTH_PROXY_SECRET
 ```
 
-5. Generate `BETTER_AUTH_SECRET` with at least 32 random characters.
-6. Apply the schema and deploy:
+6. Generate both auth secrets with at least 32 random characters. `OAUTH_PROXY_SECRET` must have the same value in production and every preview environment.
+7. Apply the schema and deploy:
 
 ```bash
 wrangler d1 migrations apply jayawijaya --remote
@@ -215,7 +217,9 @@ bun run build
 wrangler deploy
 ```
 
-For local Google OAuth, create an ignored `.dev.vars` containing the same three secrets plus `BETTER_AUTH_URL=http://localhost:5173`, and add `http://localhost:5173/api/auth/callback/google` to the Google client.
+Google only needs the production callback, `https://YOUR_HOST/api/auth/callback/google`, even when previews use the OAuth proxy. The production callback securely returns a short-lived encrypted profile to `/api/auth/oauth-proxy-callback` on the originating trusted preview, which creates that preview's own session cookie.
+
+For local Google OAuth, create an ignored `.dev.vars` containing the same secrets, `BETTER_AUTH_URL` set to the production origin, and `OAUTH_PROXY_TRUSTED_ORIGINS=http://localhost:5173`. The shared `OAUTH_PROXY_SECRET` lets production return the OAuth result to localhost without registering a localhost callback with Google.
 
 ## Verification
 
