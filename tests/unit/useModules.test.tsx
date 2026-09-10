@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   setSharing: vi.fn(),
   sync: vi.fn(),
   syncAll: vi.fn(),
+  subscribe: vi.fn(),
 }));
 
 vi.mock('../../src/lib/api', () => ({ modulesApi: api }));
@@ -73,5 +74,17 @@ describe('useModules usage', () => {
 
     expect(result.current.usage).toEqual({ moduleCount: 1, usedBytes: bytes(enlarged) });
     expect(result.current.modules[0]).toEqual(enlarged);
+  });
+
+  it('counts a subscribed module without charging its bytes to owned storage', async () => {
+    const subscribed = { ...original, id: 'shared-module', subscribed: true };
+    api.subscribe.mockResolvedValue({ module: subscribed });
+    const { result } = renderHook(() => useModules());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(() => result.current.subscribeByCode('ABCD'));
+
+    expect(result.current.usage).toEqual({ moduleCount: 2, usedBytes: bytes(original) });
+    expect(result.current.modules[0]).toEqual(subscribed);
   });
 });

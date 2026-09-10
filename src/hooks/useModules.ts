@@ -58,7 +58,7 @@ export function useModules() {
     setModules(previous => {
       const removed = previous.find(module => module.id === id);
       if (removed) {
-        const bytes = moduleBytes(removed);
+        const bytes = removed.subscribed ? 0 : moduleBytes(removed);
         setUsage(current => ({ moduleCount: Math.max(0, current.moduleCount - 1), usedBytes: Math.max(0, current.usedBytes - bytes) }));
       }
       return previous.filter(module => module.id !== id);
@@ -102,7 +102,7 @@ export function useModules() {
     setModules(previous => [module, ...previous]);
     setUsage(previous => ({
       moduleCount: previous.moduleCount + 1,
-      usedBytes: previous.usedBytes + moduleBytes(module),
+      usedBytes: previous.usedBytes,
     }));
     return module;
   }, []);

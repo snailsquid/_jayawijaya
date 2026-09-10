@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ArrowLeft, CreditCard, LogOut, Mail, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, PageShell } from '@/components/app-shell';
@@ -5,11 +6,20 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authClient, type AppUser } from '@/lib/auth-client';
+import { paymentsApi } from '@/lib/api';
 import { clearActiveQuizSnapshot } from '@/lib/quiz-snapshot';
+import { getSubscriptionSummary } from '@/lib/subscription';
+import type { Payment } from '@/types/payment';
 
 export function Account({ user }: { user: AppUser }) {
   const navigate = useNavigate();
+  const [payments, setPayments] = useState<Payment[]>([]);
   const initials = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
+  const accountIsPro = user.tier === 'pro' || getSubscriptionSummary(payments).active;
+
+  useEffect(() => {
+    void paymentsApi.list().then(result => setPayments(result.payments)).catch(() => undefined);
+  }, []);
 
   const signOut = () => {
     clearActiveQuizSnapshot();
@@ -34,11 +44,11 @@ export function Account({ user }: { user: AppUser }) {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><CardTitle>Plan and billing</CardTitle><CardDescription>Manage your access and review payment history.</CardDescription></div>
-            <Badge variant={user.tier === 'pro' ? 'default' : 'secondary'}>{user.tier === 'pro' ? 'Pro' : 'Free'}</Badge>
+            <Badge variant={accountIsPro ? 'default' : 'secondary'}>{accountIsPro ? 'Pro' : 'Free'}</Badge>
           </div>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => navigate('/pricing')}><CreditCard /> {user.tier === 'pro' ? 'Manage plan' : 'View plans'}</Button>
+          <Button onClick={() => navigate('/pricing')}><CreditCard /> {accountIsPro ? 'Manage plan' : 'View plans'}</Button>
         </CardContent>
       </Card>
       <Card>
