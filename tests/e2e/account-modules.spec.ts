@@ -38,8 +38,9 @@ test('imports legacy device modules once into the signed-in account', async ({ p
 test('account can upload and retain a private module', async ({ page }) => {
   await signUp(page, 'alice');
   await page.goto('/start');
-  await expect(page.getByText(/alice-.*@example.com/)).toBeVisible();
-  await page.getByRole('button', { name: /upload modules/i }).click();
+  await expect(page.getByRole('button', { name: /account/i })).toBeVisible();
+  await page.getByRole('button', { name: /new module/i }).click();
+  await page.getByRole('menuitem', { name: /write yaml code/i }).click();
   await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: E2E Liver Module
 questions:
   - question: The liver is in which quadrant?
@@ -49,7 +50,8 @@ questions:
   await expect(page.getByText('E2E Liver Module')).toBeVisible();
   await page.reload();
   await expect(page.getByText('E2E Liver Module')).toBeVisible();
-  await page.getByRole('button', { name: /upload modules/i }).click();
+  await page.getByRole('button', { name: /new module/i }).click();
+  await page.getByRole('menuitem', { name: /write yaml code/i }).click();
   await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: E2E Liver Module
 questions:
   - question: The liver is in which quadrant?
@@ -72,6 +74,7 @@ questions:
   await page.getByRole('button', { name: /^finish$/i }).click();
   await page.getByRole('button', { name: /finish quiz/i }).click();
   await page.getByRole('button', { name: /^setup$/i }).first().click();
+  await page.getByRole('button', { name: /account/i }).click();
   await page.getByRole('button', { name: /log out/i }).click();
   await page.goBack();
   await expect(page.getByText('The liver is in which quadrant?')).toHaveCount(0);
@@ -80,7 +83,8 @@ questions:
 test('an expired session does not remove an active quiz snapshot', async ({ page }) => {
   const original = await signUp(page, 'quiz-user');
   await page.goto('/start');
-  await page.getByRole('button', { name: /upload modules/i }).click();
+  await page.getByRole('button', { name: /new module/i }).click();
+  await page.getByRole('menuitem', { name: /write yaml code/i }).click();
   await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: Session Module
 questions:
   - question: Continue after expiry?

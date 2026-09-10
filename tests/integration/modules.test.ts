@@ -133,6 +133,20 @@ describe('account-owned module API', () => {
     expect(await response.json()).toMatchObject({ error: { code: 'MODULE_QUOTA_REACHED' } });
   });
 
+  it('grants Pro quotas while a successful payment entitlement is active', async () => {
+    const alice = await signUp('paid-alice');
+    const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'paid-alice@example.test'").first<{ id: string }>();
+    await Promise.all(Array.from({ length: MODULE_LIMITS.free.modules }, (_, index) =>
+      insertModule(user!.id, `paid-seed-${index}`, `paid-hash-${index}`, 2, [])));
+    await grantPremium('paid-alice');
+
+    const listed = await api('/api/modules', alice);
+    expect(await listed.json()).toMatchObject({ limits: MODULE_LIMITS.pro });
+    expect((await api('/api/modules', alice, {
+      method: 'POST', body: JSON.stringify({ ...moduleBody, hash: 'paid-new-hash' }),
+    })).status).toBe(201);
+  });
+
   it('atomically enforces the module count quota across concurrent creates', async () => {
     const alice = await signUp('alice');
     const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'alice@example.test'").first<{ id: string }>();
@@ -231,10 +245,11 @@ describe('account-owned module API', () => {
       method: 'POST', body: JSON.stringify({ ...moduleBody, visibility: 'live' }),
     });
     expect(created.status).toBe(201);
-    const original = (await created.json() as { module: { id: string; shareToken: string; currentVersion: number } }).module;
+    const original = (await created.json() as { module: { id: string; shareToken: string; shareCode: string; currentVersion: number } }).module;
     expect(original.shareToken).toHaveLength(32);
+    expect(original.shareCode).toMatch(/^[A-Z2-9]{4}$/);
     expect((await api(`/api/modules/shared/${original.shareToken}`, bob)).status).toBe(200);
-    expect((await api(`/api/modules/shared/${original.shareToken}/subscribe`, bob, { method: 'POST' })).status).toBe(201);
+    expect((await api(`/api/modules/shared/${original.shareCode.toLowerCase()}/subscribe`, bob, { method: 'POST' })).status).toBe(201);
 
     await api(`/api/modules/${original.id}`, bob, { method: 'PATCH', body: JSON.stringify({ categoryId: 'Bob category' }) });
     const aliceList = await api('/api/modules', alice);

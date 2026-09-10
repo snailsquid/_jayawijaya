@@ -1,33 +1,38 @@
 import { useState } from 'react';
 import type { Module } from '../types/quiz';
 import { ModuleUploadModal } from './ModuleUploadModal';
-import { Upload } from 'lucide-react';
+import { ModuleCodeModal } from './ModuleCodeModal';
+import { Braces, ChevronDown, FileUp, KeyRound, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface ModuleUploaderProps {
   onUpload: (modules: Module[]) => void | Promise<void>;
   existingModules: Module[];
+  onImportCode: (code: string) => Promise<void>;
 }
 
-export function ModuleUploader({ onUpload, existingModules }: ModuleUploaderProps) {
-  const [modalOpen, setModalOpen] = useState(false);
+export function ModuleUploader({ onUpload, existingModules, onImportCode }: ModuleUploaderProps) {
+  const [mode, setMode] = useState<'file' | 'code' | 'share-code' | null>(null);
   const [modalKey, setModalKey] = useState(0);
 
-  const handleOpen = () => {
+  const handleOpen = (nextMode: 'file' | 'code' | 'share-code') => {
     setModalKey(k => k + 1);
-    setModalOpen(true);
+    setMode(nextMode);
   };
 
   return (
     <>
-      <Button variant="outline" onClick={handleOpen}><Upload /> Upload modules</Button>
-      <ModuleUploadModal
+      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline"><Upload /> New module <ChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => handleOpen('share-code')}><KeyRound /> Add from 4-letter code</DropdownMenuItem><DropdownMenuItem onSelect={() => handleOpen('file')}><FileUp /> Upload YAML file</DropdownMenuItem><DropdownMenuItem onSelect={() => handleOpen('code')}><Braces /> Write YAML code</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+      {mode === 'share-code' && <ModuleCodeModal open onClose={() => setMode(null)} onSubscribe={onImportCode} />}
+      {(mode === 'file' || mode === 'code') && <ModuleUploadModal
         key={modalKey}
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        open
+        mode={mode}
+        onClose={() => setMode(null)}
         onUpload={onUpload}
         existingModules={existingModules}
-      />
+      />}
     </>
   );
 }

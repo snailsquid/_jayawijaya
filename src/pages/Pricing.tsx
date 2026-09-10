@@ -96,7 +96,7 @@ export function Pricing() {
 
   return (
     <PageShell>
-      <PageHeader title="Pricing" actions={<Button variant="outline" onClick={() => navigate('/')}><ArrowLeft /> Home</Button>} />
+      <PageHeader title="Plan and billing" actions={<Button variant="outline" onClick={() => navigate('/account')}><ArrowLeft /> Account</Button>} />
       <div className="space-y-6">
         {entitlement && <Alert><CheckCircle2 /><AlertTitle>{entitlement.plan} is active</AlertTitle><AlertDescription>{entitlement.expiresAt ? `Access through ${new Date(entitlement.expiresAt).toLocaleDateString('id-ID')}.` : 'Lifetime access.'}</AlertDescription></Alert>}
         {message && <Alert><CheckCircle2 /><AlertTitle>Payment update</AlertTitle><AlertDescription>{message}</AlertDescription></Alert>}

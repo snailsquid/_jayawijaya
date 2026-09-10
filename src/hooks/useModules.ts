@@ -99,5 +99,15 @@ export function useModules() {
     return response.updated;
   }, []);
 
-  return { modules, usage, limits, loading, error, addModules, updateModule, deleteModule, setSharing, publishModule, syncModule, syncAll, reload };
+  const subscribeByCode = useCallback(async (code: string) => {
+    const { module } = await modulesApi.subscribe(code);
+    setModules(previous => [module, ...previous]);
+    setUsage(previous => ({
+      moduleCount: previous.moduleCount + 1,
+      usedBytes: previous.usedBytes,
+    }));
+    return module;
+  }, []);
+
+  return { modules, usage, limits, loading, error, addModules, updateModule, deleteModule, setSharing, publishModule, syncModule, syncAll, subscribeByCode, reload };
 }
