@@ -23,6 +23,13 @@ export function createAuth(env: Env) {
         secret: env.OAUTH_PROXY_SECRET,
       }),
     ],
+    advanced: {
+      oauthConfig: {
+        // Preview OAuth crosses hosts via the production proxy. Persisting each
+        // flow independently avoids a retry overwriting the browser state cookie.
+        storeStateStrategy: 'database',
+      },
+    },
     session: {
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,

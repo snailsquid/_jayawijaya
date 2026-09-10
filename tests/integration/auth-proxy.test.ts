@@ -28,5 +28,8 @@ describe('OAuth preview proxy', () => {
     expect(body.redirect).toBe(true);
     expect(providerURL.searchParams.get('redirect_uri')).toBe('http://example.test/api/auth/callback/google');
     expect(providerURL.searchParams.get('state')).toBeTruthy();
+
+    const storedStates = await env.DB.prepare('SELECT COUNT(*) AS count FROM verification').first<{ count: number }>();
+    expect(storedStates?.count).toBe(1);
   });
 });
