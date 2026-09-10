@@ -15,6 +15,8 @@ export default defineConfig({
         ENVIRONMENT: 'test',
         BETTER_AUTH_URL: 'http://example.test',
         BETTER_AUTH_SECRET: 'test-secret-that-is-at-least-32-characters',
+        OAUTH_PROXY_SECRET: 'test-oauth-proxy-secret-at-least-32-characters',
+        OAUTH_PROXY_TRUSTED_ORIGINS: 'http://preview.example.test',
         GOOGLE_CLIENT_ID: 'test-google-id',
         GOOGLE_CLIENT_SECRET: 'test-google-secret',
         MIDTRANS_SERVER_KEY: 'test-midtrans-server-key',

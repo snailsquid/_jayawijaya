@@ -6,6 +6,8 @@ export interface Env {
   GOOGLE_CLIENT_SECRET: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  OAUTH_PROXY_SECRET: string;
+  OAUTH_PROXY_TRUSTED_ORIGINS?: string;
   MIDTRANS_SERVER_KEY: string;
   MIDTRANS_CLIENT_KEY: string;
   MIDTRANS_IS_PRODUCTION?: string;

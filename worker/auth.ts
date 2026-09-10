@@ -1,14 +1,27 @@
 import { betterAuth } from 'better-auth';
+import { oAuthProxy } from 'better-auth/plugins';
 import type { Env } from './env';
 
 export function createAuth(env: Env) {
+  const proxyTrustedOrigins = env.OAUTH_PROXY_TRUSTED_ORIGINS
+    ?.split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean) ?? [];
+
   return betterAuth({
     database: env.DB,
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     trustedOrigins: [
       env.BETTER_AUTH_URL,
+      ...proxyTrustedOrigins,
       ...(env.ENVIRONMENT === 'test' ? ['http://localhost:5173', 'http://127.0.0.1:5173'] : []),
+    ],
+    plugins: [
+      oAuthProxy({
+        productionURL: env.BETTER_AUTH_URL,
+        secret: env.OAUTH_PROXY_SECRET,
+      }),
     ],
     session: {
       expiresIn: 60 * 60 * 24 * 7,
