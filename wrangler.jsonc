@@ -20,7 +20,7 @@
   ],
   "vars": {
     "BETTER_AUTH_URL": "https://jayawijaya.arkk.workers.dev",
-    "OAUTH_PROXY_TRUSTED_ORIGINS": "https://*-jayawijaya.arkk.workers.dev",
+    "OAUTH_PROXY_TRUSTED_ORIGINS": "https://acromion.org,https://*.acromion.org,https://*-jayawijaya.arkk.workers.dev",
     "ENVIRONMENT": "development",
     "MIDTRANS_IS_PRODUCTION": "false",
   },
