@@ -24,10 +24,25 @@ export interface PaymentProduct {
   name: string;
   amount: number;
   currency: string;
-  entitlementDays: number;
+  plan: 'VIP' | 'VIP+' | 'MVP';
+  entitlementDays: number | null;
+  duration: { unit: 'months'; value: number } | { unit: 'lifetime'; value: null };
+  benefits: readonly string[];
+}
+
+export interface ActiveEntitlement {
+  plan: PaymentProduct['plan'];
+  startsAt: string;
+  expiresAt: string | null;
 }
 
 export interface MidtransClientConfig {
   clientKey: string;
   snapJsUrl: string;
+}
+
+export interface SubscriptionSummary {
+  active: boolean;
+  expiresAt: Date | null;
+  daysRemaining: number;
 }

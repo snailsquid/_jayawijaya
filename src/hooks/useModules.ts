@@ -9,6 +9,7 @@ export function useModules() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [usage, setUsage] = useState({ moduleCount: 0, usedBytes: 0 });
+  const [limits, setLimits] = useState({ modules: 10, storageBytes: 25 * 1024 * 1024, liveModules: false });
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -16,6 +17,7 @@ export function useModules() {
       const response = await modulesApi.list();
       setModules(response.modules);
       setUsage(response.usage);
+      setLimits(response.limits);
       setError('');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to load modules.');
@@ -97,5 +99,15 @@ export function useModules() {
     return response.updated;
   }, []);
 
-  return { modules, usage, loading, error, addModules, updateModule, deleteModule, setSharing, publishModule, syncModule, syncAll, reload };
+  const subscribeByCode = useCallback(async (code: string) => {
+    const { module } = await modulesApi.subscribe(code);
+    setModules(previous => [module, ...previous]);
+    setUsage(previous => ({
+      moduleCount: previous.moduleCount + 1,
+      usedBytes: previous.usedBytes,
+    }));
+    return module;
+  }, []);
+
+  return { modules, usage, limits, loading, error, addModules, updateModule, deleteModule, setSharing, publishModule, syncModule, syncAll, subscribeByCode, reload };
 }

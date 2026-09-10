@@ -71,12 +71,12 @@ bunx wrangler secret put MIDTRANS_SERVER_KEY
 Set the Midtrans notification URL to
 `https://<your-worker-domain>/api/payments/midtrans/notification`. Sandbox is used unless
 `MIDTRANS_IS_PRODUCTION` is explicitly set to `"true"`; production must use matching production
-client and server keys. The current payment product records a verified Rp15,000 30-day pass but
-does not yet grant or change account entitlements.
+client and server keys. Server-owned plans are VIP (Rp30,000/month), VIP+ (Rp40,000/6 months),
+and MVP (Rp100,000/lifetime). Verified payments activate the corresponding entitlement; Basic
+accounts can store 10 modules, while paid plans can store 200 and create live modules.
 
-The payment schema is in `migrations/0004_payments.sql` so it can follow the live-module
-`0003` migration when those feature lines are combined. The migration is safe to run against a
-database that already applied the payment schema under the earlier filename.
+The payment schema is in `migrations/0004_payments.sql`; active, expiring, and lifetime grants
+are stored independently in `migrations/0005_entitlements.sql`.
 
 ## YAML Module Format
 

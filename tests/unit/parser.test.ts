@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { computeFileHash, parseModule, parseModules, validateModule } from '../../src/lib/parser';
+import { computeFileHash, moduleToYAML, parseModule, parseModules, validateModule } from '../../src/lib/parser';
 
 const yaml = `title: Test
 description: Desc
@@ -25,6 +25,14 @@ describe('module parser', () => {
     expect(module.id).toBe('test.yaml-123-0');
     expect(module.hash).toHaveLength(64);
     vi.restoreAllMocks();
+  });
+
+  it('serializes a module back to editable YAML without server metadata', () => {
+    const original = parseModule(yaml, 'private-id');
+    const serialized = moduleToYAML({ ...original, visibility: 'live', shareToken: 'secret' });
+    expect(parseModule(serialized, 'new-id')).toMatchObject({ title: 'Test', description: 'Desc', questions: original.questions });
+    expect(serialized).not.toContain('secret');
+    expect(serialized).not.toContain('private-id');
   });
 
   it('validates minimum module structure', () => {

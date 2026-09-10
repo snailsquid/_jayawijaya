@@ -1,5 +1,5 @@
 import type { Module } from '../types/quiz';
-import type { MidtransClientConfig, Payment, PaymentProduct } from '../types/payment';
+import type { ActiveEntitlement, MidtransClientConfig, Payment, PaymentProduct } from '../types/payment';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -25,7 +25,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const modulesApi = {
-  list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number } }>('/api/modules'),
+  list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number }; limits: { modules: number; storageBytes: number; liveModules: boolean } }>('/api/modules'),
   create: (module: Module) => request<{ module: Module }>('/api/modules', { method: 'POST', body: JSON.stringify(module) }),
   update: (id: string, patch: Partial<Module>) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   remove: (id: string) => request<void>(`/api/modules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
@@ -38,7 +38,7 @@ export const modulesApi = {
 };
 
 export const paymentsApi = {
-  list: () => request<{ payments: Payment[]; product: PaymentProduct; config: MidtransClientConfig }>('/api/payments'),
+  list: () => request<{ payments: Payment[]; products: PaymentProduct[]; entitlement: ActiveEntitlement | null; config: MidtransClientConfig }>('/api/payments'),
   create: (productCode: string) => request<{ payment: Payment; config: MidtransClientConfig }>('/api/payments', {
     method: 'POST', body: JSON.stringify({ productCode }),
   }),
