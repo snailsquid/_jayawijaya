@@ -17,7 +17,8 @@ describe('Midtrans payment policy', () => {
     expect(mapMidtransStatus({ transaction_status: 'authorize' })).toBe('pending');
     expect(mapMidtransStatus({ transaction_status: 'failure' })).toBe('failed');
     expect(mapMidtransStatus({ transaction_status: 'deny' })).toBe('failed');
-    expect(mapMidtransStatus({ transaction_status: 'partial_refund' })).toBe('refunded');
+    expect(mapMidtransStatus({ transaction_status: 'partial_refund' })).toBe('succeeded');
+    expect(mapMidtransStatus({ transaction_status: 'partial_chargeback' })).toBe('succeeded');
     expect(mapMidtransStatus({ transaction_status: 'chargeback' })).toBe('charged_back');
   });
 

@@ -127,10 +127,13 @@ export function mapMidtransStatus(payload: Pick<MidtransStatusPayload, 'transact
     case 'failure': return 'failed';
     case 'cancel': return 'canceled';
     case 'expire': return 'expired';
-    case 'refund':
-    case 'partial_refund': return 'refunded';
-    case 'chargeback':
-    case 'partial_chargeback': return 'charged_back';
+    case 'refund': return 'refunded';
+    case 'chargeback': return 'charged_back';
+    // Midtrans reports partial reversals as transaction statuses, but they do
+    // not mean the complete purchase was reversed. Keep the paid entitlement
+    // until the provider reports a full refund or chargeback.
+    case 'partial_refund':
+    case 'partial_chargeback': return 'succeeded';
     default: throw new PaymentError('Unsupported Midtrans transaction status.', 422, 'UNKNOWN_PROVIDER_STATUS');
   }
 }

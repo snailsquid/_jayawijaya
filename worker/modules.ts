@@ -14,9 +14,11 @@ async function currentUser(auth: Auth, request: Request): Promise<AuthUser | nul
 }
 
 async function effectiveTier(env: Env, userId: string) {
+  const now = new Date().toISOString();
   const active = await env.DB.prepare(`SELECT 1 ok FROM entitlements
-    WHERE user_id = ? AND active = 1 AND (expires_at IS NULL OR expires_at > ?) LIMIT 1`)
-    .bind(userId, new Date().toISOString()).first();
+    WHERE user_id = ? AND active = 1 AND starts_at <= ?
+    AND (expires_at IS NULL OR expires_at > ?) LIMIT 1`)
+    .bind(userId, now, now).first();
   return active ? 'pro' : 'free';
 }
 

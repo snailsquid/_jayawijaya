@@ -31,6 +31,14 @@ async function notification(orderId: string, overrides: Record<string, string> =
   return api('/api/payments/midtrans/notification', undefined, { method: 'POST', body: JSON.stringify({ ...payload, signature_key }) });
 }
 
+async function createOrder(cookie: string, productCode: string) {
+  const response = await api('/api/payments', cookie, {
+    method: 'POST', body: JSON.stringify({ productCode }),
+  });
+  expect(response.status).toBe(201);
+  return (await response.json() as { payment: { orderId: string } }).payment.orderId;
+}
+
 describe('payment API', () => {
   beforeEach(async () => {
     await reset();
@@ -126,6 +134,55 @@ describe('payment API', () => {
     expect(grants.results).toHaveLength(1);
     expect(grants.results[0]).toMatchObject({ plan: 'VIP', active: 1 });
     expect(grants.results[0].expires_at).toBeTruthy();
+  });
+
+  it('reschedules a future grant when the current grant is refunded', async () => {
+    const cookie = await signUp('alice');
+    const currentOrder = await createOrder(cookie, 'vip-1m');
+    await notification(currentOrder);
+    const futureOrder = await createOrder(cookie, 'vip-plus-6m');
+    await notification(futureOrder, { gross_amount: '40000.00' });
+    await notification(currentOrder, { transaction_status: 'refund' });
+
+    const payments = await api('/api/payments', cookie);
+    expect((await payments.json() as { entitlement: { plan: string } }).entitlement.plan).toBe('VIP+');
+    const modules = await api('/api/modules', cookie);
+    expect((await modules.json() as { limits: { modules: number } }).limits.modules).toBe(200);
+    const grants = await env.DB.prepare(`SELECT product_code, starts_at, expires_at, active FROM entitlements
+      ORDER BY created_at`).all<{ product_code: string; starts_at: string; expires_at: string; active: number }>();
+    expect(grants.results[0].active).toBe(0);
+    expect(Date.parse(grants.results[1].starts_at)).toBeLessThan(Date.parse(grants.results[0].expires_at));
+  });
+
+  it('keeps access after a partial refund', async () => {
+    const cookie = await signUp('alice');
+    const orderId = await createOrder(cookie, 'vip-1m');
+    await notification(orderId);
+    await notification(orderId, { transaction_status: 'partial_refund' });
+
+    const payment = await env.DB.prepare('SELECT status, provider_status FROM payments WHERE order_id = ?')
+      .bind(orderId).first<{ status: string; provider_status: string }>();
+    expect(payment).toMatchObject({ status: 'succeeded', provider_status: 'partial_refund' });
+    const entitlement = await env.DB.prepare('SELECT active FROM entitlements').first<{ active: number }>();
+    expect(entitlement?.active).toBe(1);
+  });
+
+  it('serializes concurrent entitlement grants so purchased durations do not overlap', async () => {
+    const cookie = await signUp('alice');
+    const oneMonthOrder = await createOrder(cookie, 'vip-1m');
+    const sixMonthOrder = await createOrder(cookie, 'vip-plus-6m');
+
+    const responses = await Promise.all([
+      notification(oneMonthOrder),
+      notification(sixMonthOrder, { gross_amount: '40000.00' }),
+    ]);
+    expect(responses.map(response => response.status)).toEqual([200, 200]);
+    const grants = await env.DB.prepare(`SELECT product_code, starts_at, expires_at FROM entitlements
+      ORDER BY starts_at, expires_at`).all<{ product_code: string; starts_at: string; expires_at: string }>();
+    expect(grants.results).toHaveLength(2);
+    expect(grants.results[1].starts_at).toBe(grants.results[0].expires_at);
+    expect(new Set(grants.results.map(grant => grant.product_code)))
+      .toEqual(new Set(['vip-1m', 'vip-plus-6m']));
   });
 
   it('rejects invalid signatures and mismatched amounts', async () => {

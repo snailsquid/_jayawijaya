@@ -133,31 +133,88 @@ function addCalendarMonths(iso: string, months: number) {
   return date.toISOString();
 }
 
+interface EntitlementRow extends Record<string, unknown> {
+  id: string;
+  product_code: string;
+  starts_at: string;
+  expires_at: string | null;
+}
+
+async function revokeAndRescheduleEntitlement(env: Env, payment: PaymentRow, now: string) {
+  await env.DB.prepare(`INSERT OR IGNORE INTO entitlement_allocation_versions (user_id, version)
+    VALUES (?, 0)`).bind(payment.user_id).run();
+  for (;;) {
+    const allocation = await env.DB.prepare('SELECT version FROM entitlement_allocation_versions WHERE user_id = ?')
+      .bind(payment.user_id).first<{ version: number }>();
+    const revoked = await env.DB.prepare(`SELECT id, product_code, starts_at, expires_at FROM entitlements
+      WHERE payment_id = ? AND active = 1`).bind(payment.id).first<EntitlementRow>();
+    if (!revoked) return;
+    const downstream = revoked.expires_at === null ? { results: [] as EntitlementRow[] } : await env.DB.prepare(`SELECT id, product_code, starts_at, expires_at FROM entitlements
+      WHERE user_id = ? AND active = 1 AND starts_at >= ? AND id <> ? ORDER BY starts_at, created_at`)
+      .bind(payment.user_id, revoked.expires_at, revoked.id).all<EntitlementRow>();
+    const version = Number(allocation?.version ?? 0);
+    let cursor = revoked.starts_at > now ? revoked.starts_at : now;
+    const statements = [
+      env.DB.prepare(`UPDATE entitlements SET active = 0, updated_at = ? WHERE id = ?
+        AND (SELECT version FROM entitlement_allocation_versions WHERE user_id = ?) = ?`)
+        .bind(now, revoked.id, payment.user_id, version),
+    ];
+    for (const entitlement of downstream.results) {
+      const product = findPaymentProduct(entitlement.product_code);
+      if (!product) continue;
+      const expiresAt = product.duration.unit === 'lifetime'
+        ? null
+        : addCalendarMonths(cursor, product.duration.value);
+      statements.push(env.DB.prepare(`UPDATE entitlements SET starts_at = ?, expires_at = ?, updated_at = ?
+        WHERE id = ? AND (SELECT version FROM entitlement_allocation_versions WHERE user_id = ?) = ?`)
+        .bind(cursor, expiresAt, now, entitlement.id, payment.user_id, version));
+      if (expiresAt === null) break;
+      cursor = expiresAt;
+    }
+    statements.push(env.DB.prepare(`UPDATE entitlement_allocation_versions SET version = version + 1
+      WHERE user_id = ? AND version = ?`).bind(payment.user_id, version));
+    const results = await env.DB.batch(statements);
+    if (results.at(-1)?.meta.changes === 1) return;
+  }
+}
+
 async function syncEntitlement(env: Env, payment: PaymentRow) {
   const product = findPaymentProduct(payment.product_code);
   if (!product) return;
   const now = new Date().toISOString();
   if (payment.status === 'succeeded') {
-    const existing = await env.DB.prepare('SELECT 1 ok FROM entitlements WHERE payment_id = ?')
-      .bind(payment.id).first();
-    if (existing) return;
-    const lifetime = await env.DB.prepare(`SELECT 1 ok FROM entitlements
-      WHERE user_id = ? AND active = 1 AND expires_at IS NULL LIMIT 1`).bind(payment.user_id).first();
-    const latest = await env.DB.prepare(`SELECT expires_at FROM entitlements
-      WHERE user_id = ? AND active = 1 AND expires_at > ? ORDER BY expires_at DESC LIMIT 1`)
-      .bind(payment.user_id, now).first<{ expires_at: string }>();
-    const startsAt = lifetime ? now : latest?.expires_at ?? now;
-    const expiresAt = product.duration.unit === 'lifetime'
-      ? null
-      : addCalendarMonths(startsAt, product.duration.value);
-    await env.DB.prepare(`INSERT OR IGNORE INTO entitlements
-      (id, user_id, payment_id, product_code, plan, starts_at, expires_at, active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`)
-      .bind(crypto.randomUUID(), payment.user_id, payment.id, product.code, product.plan,
-        startsAt, expiresAt, now, now).run();
+    await env.DB.prepare(`INSERT OR IGNORE INTO entitlement_allocation_versions (user_id, version)
+      VALUES (?, 0)`).bind(payment.user_id).run();
+    for (;;) {
+      const existing = await env.DB.prepare('SELECT 1 ok FROM entitlements WHERE payment_id = ?')
+        .bind(payment.id).first();
+      if (existing) return;
+      const allocation = await env.DB.prepare('SELECT version FROM entitlement_allocation_versions WHERE user_id = ?')
+        .bind(payment.user_id).first<{ version: number }>();
+      const latest = await env.DB.prepare(`SELECT expires_at FROM entitlements
+        WHERE user_id = ? AND active = 1 AND (expires_at IS NULL OR expires_at > ?)
+        ORDER BY expires_at IS NULL DESC, expires_at DESC LIMIT 1`)
+        .bind(payment.user_id, now).first<{ expires_at: string | null }>();
+      if (latest?.expires_at === null) return;
+      const startsAt = latest?.expires_at ?? now;
+      const expiresAt = product.duration.unit === 'lifetime'
+        ? null
+        : addCalendarMonths(startsAt, product.duration.value);
+      const version = Number(allocation?.version ?? 0);
+      const results = await env.DB.batch([
+        env.DB.prepare(`INSERT OR IGNORE INTO entitlements
+          (id, user_id, payment_id, product_code, plan, starts_at, expires_at, active, created_at, updated_at)
+          SELECT ?, ?, ?, ?, ?, ?, ?, 1, ?, ?
+          WHERE (SELECT version FROM entitlement_allocation_versions WHERE user_id = ?) = ?`)
+          .bind(crypto.randomUUID(), payment.user_id, payment.id, product.code, product.plan,
+            startsAt, expiresAt, now, now, payment.user_id, version),
+        env.DB.prepare(`UPDATE entitlement_allocation_versions SET version = version + 1
+          WHERE user_id = ? AND version = ?`).bind(payment.user_id, version),
+      ]);
+      if (results.at(-1)?.meta.changes === 1) return;
+    }
   } else if (payment.status === 'refunded' || payment.status === 'charged_back') {
-    await env.DB.prepare('UPDATE entitlements SET active = 0, updated_at = ? WHERE payment_id = ?')
-      .bind(now, payment.id).run();
+    await revokeAndRescheduleEntitlement(env, payment, now);
   }
 }
 
@@ -279,10 +336,11 @@ export async function handlePayments(request: Request, env: Env, auth: Auth): Pr
     if (request.method === 'GET' && !orderId) {
       const result = await env.DB.prepare('SELECT * FROM payments WHERE user_id = ? ORDER BY created_at DESC')
         .bind(user.id).all<PaymentRow>();
+      const now = new Date().toISOString();
       const entitlement = await env.DB.prepare(`SELECT plan, starts_at, expires_at FROM entitlements
-        WHERE user_id = ? AND active = 1 AND (expires_at IS NULL OR expires_at > ?)
+        WHERE user_id = ? AND active = 1 AND starts_at <= ? AND (expires_at IS NULL OR expires_at > ?)
         ORDER BY expires_at IS NULL DESC, expires_at DESC LIMIT 1`)
-        .bind(user.id, new Date().toISOString()).first();
+        .bind(user.id, now, now).first();
       return json({
         payments: result.results.map(fromRow), products: PAYMENT_PRODUCTS,
         entitlement: entitlement ? {
