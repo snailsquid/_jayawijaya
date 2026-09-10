@@ -57,11 +57,12 @@ function fromRow(row: Record<string, unknown>) {
     questions: JSON.parse(String(row.questions_json)), ownerId: row.owner_id as string,
     isOwner: Boolean(row.is_owner), visibility: row.visibility as 'private' | 'live',
     shareToken: row.is_owner && row.visibility === 'live' ? row.share_token as string : undefined,
+    shareCode: row.visibility === 'live' ? row.share_code as string : undefined,
     subscribed: Boolean(row.subscribed), frozen: Boolean(row.frozen), currentVersion, latestVersion,
   };
 }
 
-const librarySelect = `SELECT m.id, m.owner_id, m.visibility, m.share_token, l.category_id library_category,
+const librarySelect = `SELECT m.id, m.owner_id, m.visibility, m.share_token, m.share_code, l.category_id library_category,
   l.subscribed, l.current_version, v.title, v.description, v.content_hash, v.questions_json,
   CASE WHEN m.owner_id = ? THEN 1 ELSE 0 END is_owner,
   CASE WHEN l.subscribed = 1 AND (m.visibility <> 'live' OR m.deleted_at IS NOT NULL) THEN 1 ELSE 0 END frozen,
@@ -72,6 +73,17 @@ const librarySelect = `SELECT m.id, m.owner_id, m.visibility, m.share_token, l.c
 
 async function getLibraryModule(env: Env, userId: string, moduleId: string) {
   return env.DB.prepare(`${librarySelect} WHERE l.user_id = ? AND m.id = ?`).bind(userId, userId, moduleId).first<Record<string, unknown>>();
+}
+
+const SHARE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+async function createShareCode(env: Env): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const bytes = crypto.getRandomValues(new Uint8Array(4));
+    const code = Array.from(bytes, byte => SHARE_CODE_ALPHABET[byte % SHARE_CODE_ALPHABET.length]).join('');
+    const existing = await env.DB.prepare('SELECT 1 ok FROM modules WHERE share_code = ?').bind(code).first();
+    if (!existing) return code;
+  }
+  throw new ModuleValidationError('Could not allocate a share code. Try again.', 503, 'SHARE_CODE_UNAVAILABLE');
 }
 
 async function listModules(env: Env, userId: string, autoSync = true) {
@@ -143,6 +155,7 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       const stats = await usage(env, user.id); assertWithinQuota(user.tier, stats, parsed.byteSize);
       const id = crypto.randomUUID(); const now = new Date().toISOString();
       const token = visibility === 'live' ? crypto.randomUUID().replaceAll('-', '') : null;
+      const shareCode = visibility === 'live' ? await createShareCode(env) : null;
       const deleted = await env.DB.prepare(`SELECT id, latest_version FROM modules
         WHERE owner_id = ? AND content_hash = ? AND deleted_at IS NOT NULL`)
         .bind(user.id, parsed.contentHash).first<{ id: string; latest_version: number }>();
@@ -150,10 +163,10 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
         const next = Number(deleted.latest_version) + 1;
         await env.DB.batch([
           env.DB.prepare(`UPDATE modules SET title=?, description=?, category_id=NULL, content_version=?, questions_json=?,
-            byte_size=?, question_count=?, visibility=?, share_token=?, latest_version=?, deleted_at=NULL, updated_at=?
+            byte_size=?, question_count=?, visibility=?, share_token=?, share_code=?, latest_version=?, deleted_at=NULL, updated_at=?
             WHERE id=? AND owner_id=? AND deleted_at IS NOT NULL`)
             .bind(parsed.title, parsed.description, next, parsed.questionsJson, parsed.byteSize, parsed.questionCount,
-              visibility, token, next, now, deleted.id, user.id),
+              visibility, token, shareCode, next, now, deleted.id, user.id),
           env.DB.prepare(`INSERT INTO module_versions
             (module_id,version,title,description,content_hash,questions_json,byte_size,question_count,created_at)
             SELECT ?,?,?,?,?,?,?,?,? WHERE changes() > 0`)
@@ -171,12 +184,12 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       await env.DB.batch([
         env.DB.prepare(`INSERT INTO modules
           (id, owner_id, title, description, content_hash, content_version, questions_json, byte_size, question_count,
-           created_at, updated_at, visibility, share_token, latest_version)
-          SELECT ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1
+           created_at, updated_at, visibility, share_token, share_code, latest_version)
+          SELECT ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, 1
           WHERE (SELECT COUNT(*) FROM module_library WHERE user_id = ?) < ?
           AND (SELECT COALESCE(SUM(byte_size),0) FROM modules WHERE owner_id = ? AND deleted_at IS NULL) + ? <= ?`)
           .bind(id, user.id, parsed.title, parsed.description, parsed.contentHash, parsed.questionsJson, parsed.byteSize,
-            parsed.questionCount, now, now, visibility, token, user.id, limitsFor(user.tier).modules, user.id, parsed.byteSize, limitsFor(user.tier).storageBytes),
+            parsed.questionCount, now, now, visibility, token, shareCode, user.id, limitsFor(user.tier).modules, user.id, parsed.byteSize, limitsFor(user.tier).storageBytes),
         env.DB.prepare(`INSERT INTO module_versions SELECT ?, 1, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`)
           .bind(id, parsed.title, parsed.description, parsed.contentHash, parsed.questionsJson, parsed.byteSize, parsed.questionCount, now),
         env.DB.prepare(`INSERT INTO module_library SELECT ?, ?, 1, ?, 0, ?, ? WHERE changes() > 0`)
@@ -188,11 +201,12 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
     }
 
     if (path[0] === 'shared' && path[1]) {
+      const shareIdentifier = path[1].toUpperCase();
       const source = await env.DB.prepare(`SELECT m.id, m.owner_id, m.visibility, m.latest_version current_version,
         m.latest_version available_version, 0 subscribed, 0 is_owner, 0 frozen, NULL library_category,
-        v.title, v.description, v.content_hash, v.questions_json
+        m.share_code, v.title, v.description, v.content_hash, v.questions_json
         FROM modules m JOIN module_versions v ON v.module_id = m.id AND v.version = m.latest_version
-        WHERE m.share_token = ? AND m.visibility = 'live' AND m.deleted_at IS NULL`).bind(path[1]).first<Record<string, unknown>>();
+        WHERE (m.share_token = ? OR m.share_code = ?) AND m.visibility = 'live' AND m.deleted_at IS NULL`).bind(path[1], shareIdentifier).first<Record<string, unknown>>();
       if (!source) throw new ModuleValidationError('Share link is invalid or no longer active.', 404, 'SHARE_NOT_FOUND');
       if (request.method === 'GET' && path.length === 2) return json({ module: fromRow(source) });
       if (request.method === 'POST' && path[2] === 'subscribe') {
@@ -231,9 +245,11 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
     }
     if (request.method === 'POST' && path[1] === 'publish') return json({ module: await publish(env, user, moduleId, await readBody(request)) });
     if (request.method === 'POST' && path[1] === 'share') {
-      const body = await readBody(request); const enabled = body.enabled === true; const token = enabled ? crypto.randomUUID().replaceAll('-', '') : null;
-      const result = await env.DB.prepare(`UPDATE modules SET visibility = ?, share_token = ?, updated_at = ?
-        WHERE id = ? AND owner_id = ? AND deleted_at IS NULL`).bind(enabled ? 'live' : 'private', token, new Date().toISOString(), moduleId, user.id).run();
+      const body = await readBody(request); const enabled = body.enabled === true;
+      const token = enabled ? crypto.randomUUID().replaceAll('-', '') : null;
+      const shareCode = enabled ? await createShareCode(env) : null;
+      const result = await env.DB.prepare(`UPDATE modules SET visibility = ?, share_token = ?, share_code = ?, updated_at = ?
+        WHERE id = ? AND owner_id = ? AND deleted_at IS NULL`).bind(enabled ? 'live' : 'private', token, shareCode, new Date().toISOString(), moduleId, user.id).run();
       if (!result.meta.changes) throw new ModuleValidationError('Module not found.', 404, 'NOT_FOUND');
       return json({ module: fromRow((await getLibraryModule(env, user.id, moduleId))!) });
     }
@@ -256,7 +272,7 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       const row = await getLibraryModule(env, user.id, moduleId);
       if (!row) throw new ModuleValidationError('Module not found.', 404, 'NOT_FOUND');
       if (row.owner_id === user.id) await env.DB.batch([
-        env.DB.prepare(`UPDATE modules SET visibility='private', share_token=NULL, deleted_at=?, updated_at=? WHERE id=? AND owner_id=?`)
+        env.DB.prepare(`UPDATE modules SET visibility='private', share_token=NULL, share_code=NULL, deleted_at=?, updated_at=? WHERE id=? AND owner_id=?`)
           .bind(new Date().toISOString(), new Date().toISOString(), moduleId, user.id),
         env.DB.prepare('DELETE FROM module_library WHERE user_id=? AND module_id=?').bind(user.id, moduleId),
       ]);

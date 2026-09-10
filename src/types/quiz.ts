@@ -25,6 +25,7 @@ export interface Module {
   isOwner?: boolean;
   visibility?: 'private' | 'live';
   shareToken?: string;
+  shareCode?: string;
   subscribed?: boolean;
   frozen?: boolean;
   currentVersion?: number;
