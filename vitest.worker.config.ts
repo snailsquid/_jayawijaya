@@ -26,10 +26,12 @@ export default defineConfig({
       },
       serviceBindings: {
         ASSETS: () => new Response('asset'),
-        MIDTRANS: (request: Request) => {
+        MIDTRANS: async (request: Request) => {
           const url = new URL(request.url);
           if (url.pathname === '/snap/v1/transactions' && request.method === 'POST') {
-            return Response.json({ token: 'snap-token', redirect_url: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token' }, { status: 201 });
+            const body = await request.json() as { transaction_details: { gross_amount: number } };
+            const token = `snap-token-${body.transaction_details.gross_amount}`;
+            return Response.json({ token, redirect_url: `https://app.sandbox.midtrans.com/snap/v2/vtweb/${token}` }, { status: 201 });
           }
           const statusMatch = url.pathname.match(/^\/v2\/([^/]+)\/status$/);
           if (statusMatch && request.method === 'GET') {
