@@ -39,13 +39,13 @@ function renderRunning() {
 }
 
 describe('Running', () => {
-  beforeEach(() => sessionStorage.clear());
+  beforeEach(() => localStorage.clear());
 
   it('confirms before exiting and only discards progress after confirmation', async () => {
     const user = userEvent.setup();
     renderRunning();
 
-    await waitFor(() => expect(sessionStorage.getItem(snapshotKey('user-1'))).not.toBeNull());
+    await waitFor(() => expect(localStorage.getItem(snapshotKey('user-1'))).not.toBeNull());
     await user.click(screen.getByRole('button', { name: 'Exit' }));
 
     expect(screen.getByRole('alertdialog', { name: 'Exit quiz?' })).toBeInTheDocument();
@@ -53,14 +53,14 @@ describe('Running', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.getByRole('button', { name: 'Exit' })).toBeInTheDocument();
-    expect(sessionStorage.getItem(snapshotKey('user-1'))).not.toBeNull();
+    expect(localStorage.getItem(snapshotKey('user-1'))).not.toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Exit' }));
     await user.click(screen.getByRole('button', { name: 'Exit quiz' }));
 
     expect(await screen.findByText('Quiz setup')).toBeInTheDocument();
-    expect(sessionStorage.getItem(snapshotKey('user-1'))).toBeNull();
-    expect(sessionStorage.getItem(activeOwnerKey)).toBeNull();
+    expect(localStorage.getItem(snapshotKey('user-1'))).toBeNull();
+    expect(localStorage.getItem(activeOwnerKey)).toBeNull();
   });
 
   it('keeps the existing finish confirmation and completion flow', async () => {

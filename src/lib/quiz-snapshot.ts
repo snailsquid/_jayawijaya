@@ -1,4 +1,5 @@
 import type { Module, Question, QuizMode, QuizState } from '../types/quiz';
+import { loadDurableQuizSnapshot, removeDurableQuizSnapshot, saveDurableQuizSnapshot } from './offline-db';
 
 export interface RunningState {
   ownerId: string;
@@ -20,27 +21,41 @@ export interface QuizSnapshot {
 export const snapshotKey = (ownerId: string) => `jayawijaya-running:${ownerId}`;
 export const activeOwnerKey = 'jayawijaya-active-owner';
 
-export function saveQuizSnapshot(snapshot: QuizSnapshot) {
-  sessionStorage.setItem(snapshotKey(snapshot.ownerId), JSON.stringify(snapshot));
+export async function saveQuizSnapshot(snapshot: QuizSnapshot) {
+  const durableWrite = saveDurableQuizSnapshot(snapshot).then(() => true, () => false);
+  let localWrite = false;
+  try {
+    localStorage.setItem(snapshotKey(snapshot.ownerId), JSON.stringify(snapshot));
+    localWrite = true;
+  } catch { /* IndexedDB may still preserve a snapshot that exceeds this store's quota. */ }
+  const durableWriteSucceeded = await durableWrite;
+  if (!durableWriteSucceeded && !localWrite) throw new Error('Unable to save the quiz snapshot.');
 }
 
-export function loadQuizSnapshot(ownerId: string): QuizSnapshot | null {
-  const saved = sessionStorage.getItem(snapshotKey(ownerId));
+function validSnapshot(snapshot: QuizSnapshot | undefined | null, ownerId: string): snapshot is QuizSnapshot {
+  return snapshot?.ownerId === ownerId && snapshot.running.ownerId === ownerId;
+}
+
+export async function loadQuizSnapshot(ownerId: string): Promise<QuizSnapshot | null> {
+  const durable = await loadDurableQuizSnapshot(ownerId).catch(() => undefined);
+  if (validSnapshot(durable, ownerId)) return durable;
+  const saved = localStorage.getItem(snapshotKey(ownerId));
   if (!saved) return null;
   try {
     const parsed = JSON.parse(saved) as QuizSnapshot;
-    return parsed.ownerId === ownerId && parsed.running.ownerId === ownerId ? parsed : null;
+    return validSnapshot(parsed, ownerId) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-export function removeQuizSnapshot(ownerId: string) {
-  sessionStorage.removeItem(snapshotKey(ownerId));
+export async function removeQuizSnapshot(ownerId: string) {
+  localStorage.removeItem(snapshotKey(ownerId));
+  await removeDurableQuizSnapshot(ownerId);
 }
 
-export function clearActiveQuizSnapshot() {
-  const ownerId = sessionStorage.getItem(activeOwnerKey);
-  if (ownerId) removeQuizSnapshot(ownerId);
-  sessionStorage.removeItem(activeOwnerKey);
+export async function clearActiveQuizSnapshot() {
+  const ownerId = localStorage.getItem(activeOwnerKey);
+  if (ownerId) await removeQuizSnapshot(ownerId);
+  localStorage.removeItem(activeOwnerKey);
 }

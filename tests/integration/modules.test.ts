@@ -62,6 +62,20 @@ async function api(path: string, cookie?: string, init: RequestInit = {}) {
 }
 
 describe('account-owned module API', () => {
+  it('rejects a stale module revision and returns the current server module', async () => {
+    const alice = await signUp('revision-alice');
+    const created = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify({ ...moduleBody, title: 'Revision module', hash: 'revision-hash' }) });
+    const module = (await created.json() as { module: { id: string; revision: string } }).module;
+    const updated = await api(`/api/modules/${module.id}`, alice, { method: 'PATCH', body: JSON.stringify({ categoryId: 'first', expectedRevision: module.revision }) });
+    expect(updated.status).toBe(200);
+
+    const conflict = await api(`/api/modules/${module.id}`, alice, { method: 'PATCH', body: JSON.stringify({ categoryId: 'stale', expectedRevision: module.revision }) });
+    expect(conflict.status).toBe(409);
+    const body = await conflict.json() as { error: { code: string; currentModule: { categoryId: string; revision: string } } };
+    expect(body.error.code).toBe('VERSION_CONFLICT');
+    expect(body.error.currentModule.categoryId).toBe('first');
+    expect(body.error.currentModule.revision).not.toBe(module.revision);
+  });
   beforeEach(async () => {
     await reset();
     await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
@@ -80,6 +94,21 @@ describe('account-owned module API', () => {
     expect((await listed.json() as { modules: unknown[] }).modules).toHaveLength(1);
     expect((await api(`/api/modules/${id}`, alice, { method: 'PATCH', body: JSON.stringify({ title: 'Updated' }) })).status).toBe(200);
     expect((await api(`/api/modules/${id}`, alice, { method: 'DELETE' })).status).toBe(204);
+  });
+
+  it('returns the original module when a create mutation is retried', async () => {
+    const alice = await signUp('idempotent-alice');
+    const request = { ...moduleBody, hash: 'idempotent-hash', clientMutationId: 'create-mutation-1' };
+    const first = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify(request) });
+    const retry = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify(request) });
+
+    expect(first.status).toBe(201);
+    expect(retry.status).toBe(200);
+    const firstModule = (await first.json() as { module: { id: string } }).module;
+    const retriedModule = (await retry.json() as { module: { id: string } }).module;
+    expect(retriedModule.id).toBe(firstModule.id);
+    const listed = await api('/api/modules', alice);
+    expect((await listed.json() as { modules: unknown[] }).modules).toHaveLength(1);
   });
 
   it('prevents cross-account IDOR access and permits the same hash for each owner', async () => {

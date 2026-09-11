@@ -36,8 +36,12 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,yaml}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,ico,webp,woff2,yaml,json}'],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         runtimeCaching: [],
+        navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
       },
     }),

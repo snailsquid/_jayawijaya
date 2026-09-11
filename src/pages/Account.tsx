@@ -5,13 +5,16 @@ import { PageHeader, PageShell } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { authClient, type AppUser } from '@/lib/auth-client';
+import { authClient } from '@/lib/auth-client';
 import { paymentsApi } from '@/lib/api';
 import { clearActiveQuizSnapshot } from '@/lib/quiz-snapshot';
+import { clearCachedAccount } from '@/lib/workspace';
 import { getSubscriptionSummary } from '@/lib/subscription';
+import { navigateBackOr } from '@/lib/frontend-display';
 import type { Payment } from '@/types/payment';
+import type { WorkspaceIdentity } from '@/types/offline';
 
-export function Account({ user }: { user: AppUser }) {
+export function Account({ user }: { user: WorkspaceIdentity }) {
   const navigate = useNavigate();
   const [payments, setPayments] = useState<Payment[]>([]);
   const initials = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
@@ -21,14 +24,14 @@ export function Account({ user }: { user: AppUser }) {
     void paymentsApi.list().then(result => setPayments(result.payments)).catch(() => undefined);
   }, []);
 
-  const signOut = () => {
-    clearActiveQuizSnapshot();
-    void authClient.signOut({ fetchOptions: { onSuccess: () => navigate('/', { replace: true }) } });
+  const signOut = async () => {
+    await Promise.all([clearActiveQuizSnapshot(), clearCachedAccount()]);
+    await authClient.signOut({ fetchOptions: { onSuccess: () => navigate('/', { replace: true }) } });
   };
 
   return (
     <PageShell className="max-w-2xl">
-      <PageHeader title="Account" actions={<Button variant="outline" onClick={() => navigate('/start')}><ArrowLeft /> Quiz setup</Button>} />
+      <PageHeader title="Account" actions={<Button variant="outline" onClick={() => navigateBackOr(navigate, '/start')}><ArrowLeft /> Back</Button>} />
       <Card>
         <CardHeader className="flex-row items-center gap-4">
           {user.image
@@ -53,7 +56,7 @@ export function Account({ user }: { user: AppUser }) {
       </Card>
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><UserRound /> Session</CardTitle><CardDescription>Sign out of this account on this device.</CardDescription></CardHeader>
-        <CardContent><Button variant="outline" onClick={signOut}><LogOut /> Log out</Button></CardContent>
+        <CardContent><Button variant="outline" onClick={() => void signOut()}><LogOut /> Log out</Button></CardContent>
       </Card>
     </PageShell>
   );
