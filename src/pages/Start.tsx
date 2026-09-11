@@ -373,8 +373,8 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
             </Button>
             <Button
               variant="outline"
-              onClick={() => navigate("/")}
-              aria-label="Back to home"
+              onClick={() => navigate(-1)}
+              aria-label="Go back"
             >
               <ArrowLeft /> <span className="hidden sm:inline">Back</span>
             </Button>

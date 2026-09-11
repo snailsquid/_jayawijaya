@@ -30,7 +30,7 @@ export function Account({ user }: { user: WorkspaceIdentity }) {
 
   return (
     <PageShell className="max-w-2xl">
-      <PageHeader title="Account" actions={<Button variant="outline" onClick={() => navigate('/start')}><ArrowLeft /> Quiz setup</Button>} />
+      <PageHeader title="Account" actions={<Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft /> Back</Button>} />
       <Card>
         <CardHeader className="flex-row items-center gap-4">
           {user.image

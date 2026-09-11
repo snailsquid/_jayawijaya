@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { PageHeader, PageShell } from '@/components/app-shell';
 import { paymentsApi } from '@/lib/api';
+import { formatProductPrice } from '@/lib/frontend-display';
 import { loadSnap } from '@/lib/snap';
 import type { ActiveEntitlement, MidtransClientConfig, Payment, PaymentProduct, PaymentStatus } from '@/types/payment';
 
@@ -127,7 +128,7 @@ export function Pricing() {
 
   return (
     <PageShell>
-      <PageHeader title="Plan and billing" actions={<Button variant="outline" onClick={() => navigate('/account')}><ArrowLeft /> Account</Button>} />
+      <PageHeader title="Plan and billing" actions={<Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft /> Back</Button>} />
       <div className="space-y-6">
         {entitlement && <Alert><CheckCircle2 /><AlertTitle>{entitlement.plan} is active</AlertTitle><AlertDescription>{entitlement.expiresAt ? `Access through ${new Date(entitlement.expiresAt).toLocaleDateString('id-ID')}.` : 'Lifetime access.'}</AlertDescription></Alert>}
         {message && <Alert><CheckCircle2 /><AlertTitle>Payment update</AlertTitle><AlertDescription>{message}</AlertDescription></Alert>}
@@ -145,7 +146,7 @@ export function Pricing() {
             const duration = product.duration.unit === 'lifetime' ? 'Lifetime' : product.duration.value === 1 ? '1 month' : `${product.duration.value} months`;
             return <Card key={product.code}>
               <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard /> {product.plan}</CardTitle><CardDescription>{duration} · one-time payment</CardDescription></CardHeader>
-              <CardContent className="space-y-4">{!flexible && <p className="text-3xl font-bold">{money.format(product.amount)}</p>}<ul className="space-y-2 text-sm text-muted-foreground">{product.benefits.map(benefit => <li key={benefit}>• {benefit}</li>)}</ul></CardContent>
+              <CardContent className="space-y-4"><p className="text-3xl font-bold">{formatProductPrice(product)}</p><ul className="space-y-2 text-sm text-muted-foreground">{product.benefits.map(benefit => <li key={benefit}>• {benefit}</li>)}</ul></CardContent>
               <CardFooter><Button className="w-full" disabled={busy || !config || (hasLifetime && !flexible)} onClick={() => chooseProduct(product)}>{hasLifetime && !flexible ? 'Lifetime access active' : busy ? <><RefreshCw className="animate-spin" /> Opening…</> : active ? 'Resume payment' : 'Choose plan'}</Button></CardFooter>
             </Card>;
           })}
