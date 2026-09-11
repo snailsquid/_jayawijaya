@@ -10,6 +10,16 @@ async function signUp(page: Page, identity: string) {
   return credentials;
 }
 
+async function uploadYaml(page: Page, name: string, yaml: string) {
+  await page.getByRole('button', { name: /new module/i }).click();
+  await page.getByRole('menuitem', { name: /upload yaml file/i }).click();
+  await page.getByLabel(/choose yaml file/i).setInputFiles({
+    name,
+    mimeType: 'application/yaml',
+    buffer: Buffer.from(yaml),
+  });
+}
+
 test('anonymous visitors can use the guest workspace', async ({ page }) => {
   await page.goto('/start');
   await page.getByRole('button', { name: /continue as guest/i }).click();
@@ -42,24 +52,17 @@ test('account can upload and retain a private module', async ({ page }) => {
   await signUp(page, 'alice');
   await page.goto('/start');
   await expect(page.getByRole('button', { name: /account/i })).toBeVisible();
-  await page.getByRole('button', { name: /new module/i }).click();
-  await page.getByRole('menuitem', { name: /write yaml code/i }).click();
-  await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: E2E Liver Module
+  const liverYaml = `title: E2E Liver Module
 questions:
   - question: The liver is in which quadrant?
     answers: [RUQ, LUQ]
-    correct_answer: 1`);
+    correct_answer: 1`;
+  await uploadYaml(page, 'e2e-liver.yaml', liverYaml);
   await page.getByRole('button', { name: /^finish$/i }).click();
   await expect(page.getByText('E2E Liver Module')).toBeVisible();
   await page.reload();
   await expect(page.getByText('E2E Liver Module')).toBeVisible();
-  await page.getByRole('button', { name: /new module/i }).click();
-  await page.getByRole('menuitem', { name: /write yaml code/i }).click();
-  await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: E2E Liver Module
-questions:
-  - question: The liver is in which quadrant?
-    answers: [RUQ, LUQ]
-    correct_answer: 1`);
+  await uploadYaml(page, 'e2e-liver.yaml', liverYaml);
   await page.getByRole('button', { name: /^finish$/i }).click();
   await expect(page.getByText(/already uploaded/i)).toBeVisible();
   await page.getByRole('button', { name: /cancel/i }).click();
@@ -86,9 +89,7 @@ questions:
 test('an expired session does not remove an active quiz snapshot', async ({ page }) => {
   const original = await signUp(page, 'quiz-user');
   await page.goto('/start');
-  await page.getByRole('button', { name: /new module/i }).click();
-  await page.getByRole('menuitem', { name: /write yaml code/i }).click();
-  await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: Session Module
+  await uploadYaml(page, 'session.yaml', `title: Session Module
 questions:
   - question: Continue after expiry?
     answers: [Yes, No]
