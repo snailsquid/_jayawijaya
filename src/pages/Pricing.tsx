@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { PageHeader, PageShell } from '@/components/app-shell';
 import { paymentsApi } from '@/lib/api';
-import { formatProductPrice } from '@/lib/frontend-display';
+import { formatProductPrice, navigateBackOr } from '@/lib/frontend-display';
 import { loadSnap } from '@/lib/snap';
 import type { ActiveEntitlement, MidtransClientConfig, Payment, PaymentProduct, PaymentStatus } from '@/types/payment';
 
@@ -128,7 +128,7 @@ export function Pricing() {
 
   return (
     <PageShell>
-      <PageHeader title="Plan and billing" actions={<Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft /> Back</Button>} />
+      <PageHeader title="Plan and billing" actions={<Button variant="outline" onClick={() => navigateBackOr(navigate, '/account')}><ArrowLeft /> Back</Button>} />
       <div className="space-y-6">
         {entitlement && <Alert><CheckCircle2 /><AlertTitle>{entitlement.plan} is active</AlertTitle><AlertDescription>{entitlement.expiresAt ? `Access through ${new Date(entitlement.expiresAt).toLocaleDateString('id-ID')}.` : 'Lifetime access.'}</AlertDescription></Alert>}
         {message && <Alert><CheckCircle2 /><AlertTitle>Payment update</AlertTitle><AlertDescription>{message}</AlertDescription></Alert>}

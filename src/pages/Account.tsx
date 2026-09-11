@@ -10,6 +10,7 @@ import { paymentsApi } from '@/lib/api';
 import { clearActiveQuizSnapshot } from '@/lib/quiz-snapshot';
 import { clearCachedAccount } from '@/lib/workspace';
 import { getSubscriptionSummary } from '@/lib/subscription';
+import { navigateBackOr } from '@/lib/frontend-display';
 import type { Payment } from '@/types/payment';
 import type { WorkspaceIdentity } from '@/types/offline';
 
@@ -30,7 +31,7 @@ export function Account({ user }: { user: WorkspaceIdentity }) {
 
   return (
     <PageShell className="max-w-2xl">
-      <PageHeader title="Account" actions={<Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft /> Back</Button>} />
+      <PageHeader title="Account" actions={<Button variant="outline" onClick={() => navigateBackOr(navigate, '/start')}><ArrowLeft /> Back</Button>} />
       <Card>
         <CardHeader className="flex-row items-center gap-4">
           {user.image

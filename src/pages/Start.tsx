@@ -26,6 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { WorkspaceIdentity } from "../types/offline";
 import { ApiError } from "../lib/api";
+import { navigateBackOr } from "@/lib/frontend-display";
 
 export function Start({ user }: { user: WorkspaceIdentity }) {
   const navigate = useNavigate();
@@ -373,7 +374,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
             </Button>
             <Button
               variant="outline"
-              onClick={() => navigate(-1)}
+              onClick={() => navigateBackOr(navigate, '/')}
               aria-label="Go back"
             >
               <ArrowLeft /> <span className="hidden sm:inline">Back</span>

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { formatProductPrice, isAcromionHostname } from '@/lib/frontend-display';
+import { describe, expect, it, vi } from 'vitest';
+import { formatProductPrice, isAcromionHostname, navigateBackOr } from '@/lib/frontend-display';
 import type { PaymentProduct } from '@/types/payment';
 
 const acromionProduct: PaymentProduct = {
@@ -24,5 +24,14 @@ describe('frontend issue regressions', () => {
   it('shows a useful price for flexible contribution products', () => {
     expect(formatProductPrice(acromionProduct)).toContain('30.000');
     expect(formatProductPrice(acromionProduct)).toMatch(/^From /);
+  });
+
+  it('uses app history when available and a safe route for direct visits', () => {
+    const navigate = vi.fn();
+    navigateBackOr(navigate, '/account', { idx: 2 });
+    expect(navigate).toHaveBeenLastCalledWith(-1);
+
+    navigateBackOr(navigate, '/account', { idx: 0 });
+    expect(navigate).toHaveBeenLastCalledWith('/account', { replace: true });
   });
 });
