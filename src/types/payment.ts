@@ -24,10 +24,11 @@ export interface PaymentProduct {
   name: string;
   amount: number;
   currency: string;
-  plan: 'VIP' | 'VIP+' | 'MVP';
+  plan: 'VIP' | 'VIP+' | 'MVP' | 'Acromion';
   entitlementDays: number | null;
   duration: { unit: 'months'; value: number } | { unit: 'lifetime'; value: null };
   benefits: readonly string[];
+  pricing: { type: 'fixed' } | { type: 'flexible'; minimumAmount: number; maximumAmount: number };
 }
 
 export interface ActiveEntitlement {

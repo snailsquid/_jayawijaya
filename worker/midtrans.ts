@@ -2,25 +2,53 @@ import type { Env } from './env';
 
 export const PREMIUM_BENEFITS = ['200 modules', 'Live module creation'] as const;
 
-export const PAYMENT_PRODUCTS = [
+export interface PaymentProduct {
+  code: string;
+  name: string;
+  plan: 'VIP' | 'VIP+' | 'MVP' | 'Acromion';
+  amount: number;
+  currency: 'IDR';
+  duration: { unit: 'months'; value: number } | { unit: 'lifetime'; value: null };
+  entitlementDays: number | null;
+  benefits: readonly string[];
+  pricing: { type: 'fixed' } | { type: 'flexible'; minimumAmount: number; maximumAmount: number };
+}
+
+export const STANDARD_PAYMENT_PRODUCTS = [
   {
     code: 'vip-1m', name: '_jayawijaya VIP — 1 month', plan: 'VIP', amount: 30_000,
     currency: 'IDR', duration: { unit: 'months', value: 1 }, entitlementDays: 30,
-    benefits: PREMIUM_BENEFITS,
+    benefits: PREMIUM_BENEFITS, pricing: { type: 'fixed' },
   },
   {
     code: 'vip-plus-6m', name: '_jayawijaya VIP+ — 6 months', plan: 'VIP+', amount: 40_000,
     currency: 'IDR', duration: { unit: 'months', value: 6 }, entitlementDays: 183,
-    benefits: PREMIUM_BENEFITS,
+    benefits: PREMIUM_BENEFITS, pricing: { type: 'fixed' },
   },
   {
     code: 'mvp-lifetime', name: '_jayawijaya MVP — lifetime', plan: 'MVP', amount: 100_000,
     currency: 'IDR', duration: { unit: 'lifetime', value: null }, entitlementDays: null,
-    benefits: PREMIUM_BENEFITS,
+    benefits: PREMIUM_BENEFITS, pricing: { type: 'fixed' },
   },
-] as const;
+] as const satisfies readonly PaymentProduct[];
 
-export type PaymentProduct = (typeof PAYMENT_PRODUCTS)[number];
+export const ACROMION_PRODUCT = {
+  code: 'acromion-lifetime', name: 'Acromion — lifetime', plan: 'Acromion', amount: 30_000,
+  currency: 'IDR', duration: { unit: 'lifetime', value: null }, entitlementDays: null,
+  benefits: PREMIUM_BENEFITS,
+  pricing: { type: 'flexible', minimumAmount: 30_000, maximumAmount: 10_000_000 },
+} as const satisfies PaymentProduct;
+
+export const PAYMENT_PRODUCTS: readonly PaymentProduct[] = [...STANDARD_PAYMENT_PRODUCTS, ACROMION_PRODUCT];
+
+export function isAcromionHostname(hostname: string) {
+  const normalized = hostname.toLowerCase().replace(/\.$/, '');
+  return normalized === 'acromion.org' || normalized.endsWith('.acromion.org');
+}
+
+export function paymentProductsForHostname(hostname: string): readonly PaymentProduct[] {
+  return isAcromionHostname(hostname) ? [ACROMION_PRODUCT] : STANDARD_PAYMENT_PRODUCTS;
+}
 
 export function findPaymentProduct(code: unknown): PaymentProduct | undefined {
   return PAYMENT_PRODUCTS.find(product => product.code === code);
@@ -55,7 +83,7 @@ export interface ExpectedPayment {
 }
 
 export interface PaymentProvider {
-  createTransaction(input: { orderId: string; product: PaymentProduct; customer: { name: string; email: string } }): Promise<{ token: string; redirectUrl: string }>;
+  createTransaction(input: { orderId: string; product: PaymentProduct; amount: number; customer: { name: string; email: string } }): Promise<{ token: string; redirectUrl: string }>;
   getStatus(orderId: string): Promise<MidtransStatusPayload>;
   cancel(orderId: string): Promise<MidtransStatusPayload>;
 }
@@ -99,12 +127,12 @@ export function createMidtransProvider(env: Env): PaymentProvider {
   const snapBase = production ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';
   const apiBase = production ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com';
   return {
-    createTransaction: async ({ orderId, product, customer }) => {
+    createTransaction: async ({ orderId, product, amount, customer }) => {
       const result = await midtransRequest<{ token: string; redirect_url: string }>(`${snapBase}/snap/v1/transactions`, env, {
         method: 'POST',
         body: JSON.stringify({
-          transaction_details: { order_id: orderId, gross_amount: product.amount },
-          item_details: [{ id: product.code, price: product.amount, quantity: 1, name: product.name }],
+          transaction_details: { order_id: orderId, gross_amount: amount },
+          item_details: [{ id: product.code, price: amount, quantity: 1, name: product.name }],
           customer_details: { first_name: customer.name, email: customer.email },
           credit_card: { secure: true },
         }),

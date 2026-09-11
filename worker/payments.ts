@@ -1,7 +1,6 @@
 import type { Auth } from './auth';
 import type { Env } from './env';
 import {
-  PAYMENT_PRODUCTS,
   PaymentError,
   canTransition,
   createMidtransProvider,
@@ -10,6 +9,7 @@ import {
   validateProviderPayment,
   verifySignature,
   findPaymentProduct,
+  paymentProductsForHostname,
   type ExpectedPayment,
   type MidtransStatusPayload,
   type PaymentProvider,
@@ -246,14 +246,31 @@ async function createPayment(request: Request, env: Env, user: AuthUser, provide
   if (request.headers.get('origin') !== new URL(request.url).origin) {
     throw new PaymentError('Invalid request origin.', 403, 'INVALID_ORIGIN');
   }
-  const body = await readJson<{ productCode?: unknown }>(request);
+  const url = new URL(request.url);
+  const availableProducts = paymentProductsForHostname(url.hostname);
+  const body = await readJson<{ productCode?: unknown; amount?: unknown }>(request);
   const product = findPaymentProduct(body.productCode);
-  if (!product) {
+  if (!product || !availableProducts.some(candidate => candidate.code === product.code)) {
     throw new PaymentError('Unknown payment product.', 422, 'INVALID_PRODUCT');
+  }
+  let amount = product.amount;
+  if (product.pricing.type === 'flexible') {
+    if (!Number.isSafeInteger(body.amount)
+      || (body.amount as number) < product.pricing.minimumAmount
+      || (body.amount as number) > product.pricing.maximumAmount) {
+      throw new PaymentError(
+        `Amount must be a whole rupiah value from ${product.pricing.minimumAmount} through ${product.pricing.maximumAmount}.`,
+        422,
+        'INVALID_AMOUNT',
+      );
+    }
+    amount = body.amount as number;
   }
   const lifetime = await env.DB.prepare(`SELECT 1 ok FROM entitlements
     WHERE user_id = ? AND active = 1 AND expires_at IS NULL LIMIT 1`).bind(user.id).first();
-  if (lifetime) throw new PaymentError('Lifetime access is already active.', 409, 'LIFETIME_ALREADY_ACTIVE');
+  if (lifetime && product.code !== 'acromion-lifetime') {
+    throw new PaymentError('Lifetime access is already active.', 409, 'LIFETIME_ALREADY_ACTIVE');
+  }
   const active = await recoverAbandonedCreation(env, await findActivePayment(env, user.id, product.code));
   if (active?.snap_token) return json({ payment: fromRow(active), config: clientConfig(env) });
   if (active) throw new PaymentError('A payment is already being prepared. Try again shortly.', 409, 'PAYMENT_IN_PROGRESS');
@@ -265,7 +282,7 @@ async function createPayment(request: Request, env: Env, user: AuthUser, provide
     await env.DB.prepare(`INSERT INTO payments
       (id, order_id, user_id, product_code, amount, currency, entitlement_days, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'created', ?, ?)`)
-      .bind(id, orderId, user.id, product.code, product.amount, product.currency,
+      .bind(id, orderId, user.id, product.code, amount, product.currency,
         product.entitlementDays, now, now).run();
   } catch (error) {
     if (String(error).includes('UNIQUE constraint failed')) {
@@ -280,6 +297,7 @@ async function createPayment(request: Request, env: Env, user: AuthUser, provide
     const transaction = await provider.createTransaction({
       orderId,
       product,
+      amount,
       customer: { name: user.name, email: user.email },
     });
     if (!transaction.token) throw new PaymentError('Midtrans did not return a payment token.', 502, 'PROVIDER_ERROR');
@@ -342,7 +360,7 @@ export async function handlePayments(request: Request, env: Env, auth: Auth): Pr
         ORDER BY expires_at IS NULL DESC, expires_at DESC LIMIT 1`)
         .bind(user.id, now, now).first();
       return json({
-        payments: result.results.map(fromRow), products: PAYMENT_PRODUCTS,
+        payments: result.results.map(fromRow), products: paymentProductsForHostname(url.hostname),
         entitlement: entitlement ? {
           plan: entitlement.plan, startsAt: entitlement.starts_at, expiresAt: entitlement.expires_at,
         } : null,

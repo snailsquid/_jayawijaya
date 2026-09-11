@@ -7,13 +7,23 @@ export function createAuth(env: Env) {
     ?.split(',')
     .map(origin => origin.trim())
     .filter(Boolean) ?? [];
+  const productionHost = new URL(env.BETTER_AUTH_URL).host;
+  const allowedHosts = [
+    productionHost,
+    'acromion.org',
+    '*.acromion.org',
+    ...proxyTrustedOrigins.map(origin => origin.replace(/^https?:\/\//, '').split('/')[0]),
+    ...(env.ENVIRONMENT === 'test' ? ['localhost:5173', '127.0.0.1:5173'] : []),
+  ];
 
   return betterAuth({
     database: env.DB,
-    baseURL: env.BETTER_AUTH_URL,
+    baseURL: { allowedHosts: [...new Set(allowedHosts)], protocol: 'auto', fallback: env.BETTER_AUTH_URL },
     secret: env.BETTER_AUTH_SECRET,
     trustedOrigins: [
       env.BETTER_AUTH_URL,
+      'https://acromion.org',
+      'https://*.acromion.org',
       ...proxyTrustedOrigins,
       ...(env.ENVIRONMENT === 'test' ? ['http://localhost:5173', 'http://127.0.0.1:5173'] : []),
     ],

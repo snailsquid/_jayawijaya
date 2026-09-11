@@ -14,10 +14,10 @@ async function signUp(identity: string) {
   return response.headers.get('set-cookie')!.split(';')[0];
 }
 
-function api(path: string, cookie?: string, init: RequestInit = {}) {
-  return SELF.fetch(`http://example.test${path}`, {
+function api(path: string, cookie?: string, init: RequestInit = {}, origin = 'http://example.test') {
+  return SELF.fetch(`${origin}${path}`, {
     ...init,
-    headers: { 'content-type': 'application/json', origin: 'http://example.test', ...(cookie ? { cookie } : {}), ...init.headers },
+    headers: { 'content-type': 'application/json', origin, ...(cookie ? { cookie } : {}), ...init.headers },
   });
 }
 
@@ -52,6 +52,75 @@ describe('payment API', () => {
     expect(response.status).toBe(422);
   });
 
+  it('returns and enforces the product catalog for the request hostname', async () => {
+    const cookie = await signUp('catalog-user');
+    const standard = await api('/api/payments', cookie);
+    expect((await standard.json() as { products: { code: string }[] }).products.map(product => product.code))
+      .toEqual(['vip-1m', 'vip-plus-6m', 'mvp-lifetime']);
+
+    const acromion = await api('/api/payments', cookie, {}, 'https://learn.eu.acromion.org');
+    expect((await acromion.json() as { products: { code: string }[] }).products.map(product => product.code))
+      .toEqual(['acromion-lifetime']);
+
+    expect((await api('/api/payments', cookie, {
+      method: 'POST', body: JSON.stringify({ productCode: 'acromion-lifetime', amount: 30_000 }),
+    })).status).toBe(422);
+    expect((await api('/api/payments', cookie, {
+      method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }),
+    }, 'https://acromion.org')).status).toBe(422);
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['malformed', '30000'],
+    ['fractional', 30_000.5],
+    ['below minimum', 29_999],
+    ['above maximum', 10_000_001],
+  ])('rejects %s Acromion contribution amounts', async (_label, amount) => {
+    const cookie = await signUp(`invalid-${String(amount)}`);
+    const response = await api('/api/payments', cookie, {
+      method: 'POST', body: JSON.stringify({ productCode: 'acromion-lifetime', amount }),
+    }, 'https://acromion.org');
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ error: { code: 'INVALID_AMOUNT' } });
+  });
+
+  it.each([30_000, 40_000, 50_000, 10_000_000])('persists a valid Acromion contribution of %i', async amount => {
+    const cookie = await signUp(`amount-${amount}`);
+    const response = await api('/api/payments', cookie, {
+      method: 'POST', body: JSON.stringify({ productCode: 'acromion-lifetime', amount }),
+    }, 'https://support.acromion.org');
+    expect(response.status).toBe(201);
+    expect((await response.json() as { payment: { amount: number; snapToken: string } }).payment)
+      .toMatchObject({ amount, snapToken: `snap-token-${amount}` });
+  });
+
+  it('resumes the original Acromion amount and accepts another donation after lifetime activation', async () => {
+    const cookie = await signUp('repeat-donor');
+    const first = await api('/api/payments', cookie, {
+      method: 'POST', body: JSON.stringify({ productCode: 'acromion-lifetime', amount: 40_000 }),
+    }, 'https://acromion.org');
+    const firstPayment = (await first.json() as { payment: { orderId: string; amount: number } }).payment;
+    const resumed = await api('/api/payments', cookie, {
+      method: 'POST', body: JSON.stringify({ productCode: 'acromion-lifetime', amount: 50_000 }),
+    }, 'https://acromion.org');
+    expect((await resumed.json() as { payment: { orderId: string; amount: number } }).payment)
+      .toMatchObject({ orderId: firstPayment.orderId, amount: 40_000 });
+
+    expect((await notification(firstPayment.orderId, { gross_amount: '40000.00' })).status).toBe(200);
+    const second = await api('/api/payments', cookie, {
+      method: 'POST', body: JSON.stringify({ productCode: 'acromion-lifetime', amount: 50_000 }),
+    }, 'https://donate.acromion.org');
+    expect(second.status).toBe(201);
+    const secondPayment = (await second.json() as { payment: { orderId: string; amount: number } }).payment;
+    expect(secondPayment.amount).toBe(50_000);
+    expect((await notification(secondPayment.orderId, { gross_amount: '50000.00' })).status).toBe(200);
+
+    const grants = await env.DB.prepare(`SELECT plan, expires_at, active FROM entitlements
+      WHERE active = 1`).all<{ plan: string; expires_at: string | null; active: number }>();
+    expect(grants.results).toEqual([{ plan: 'Acromion', expires_at: null, active: 1 }]);
+  });
+
   it('rejects non-object request bodies and malformed order IDs', async () => {
     const cookie = await signUp('alice');
     const nullBody = await api('/api/payments', cookie, { method: 'POST', body: 'null' });
@@ -67,7 +136,7 @@ describe('payment API', () => {
     const first = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m', amount: 1 }) });
     expect(first.status).toBe(201);
     const firstBody = await first.json() as { payment: { orderId: string; amount: number; snapToken: string } };
-    expect(firstBody.payment).toMatchObject({ amount: 30_000, snapToken: 'snap-token' });
+    expect(firstBody.payment).toMatchObject({ amount: 30_000, snapToken: 'snap-token-30000' });
     const resumed = await api('/api/payments', cookie, { method: 'POST', body: JSON.stringify({ productCode: 'vip-1m' }) });
     expect(resumed.status).toBe(200);
     expect((await resumed.json() as { payment: { orderId: string } }).payment.orderId).toBe(firstBody.payment.orderId);

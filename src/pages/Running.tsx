@@ -14,15 +14,21 @@ function ConfirmPopup({
   open,
   onClose,
   onConfirm,
+  title,
   message,
+  confirmLabel,
+  destructive = false,
 }: {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  title: string;
   message: string;
+  confirmLabel: string;
+  destructive?: boolean;
 }) {
   return (
-    <AlertDialog open={open} onOpenChange={value => !value && onClose()}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Finish quiz?</AlertDialogTitle><AlertDialogDescription>{message}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel><AlertDialogAction onClick={onConfirm}>Finish quiz</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <AlertDialog open={open} onOpenChange={value => !value && onClose()}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{title}</AlertDialogTitle><AlertDialogDescription>{message}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel><AlertDialogAction variant={destructive ? 'destructive' : 'default'} onClick={onConfirm}>{confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   );
 }
 
@@ -57,7 +63,7 @@ export function Running() {
 
   const [practiceSubmitted, setPracticeSubmitted] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'next' | 'finish' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'exit' | 'finish' | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(() => {
     const dur = initialState?.timerDuration;
     const start = initialState?.timerStart;
@@ -196,6 +202,11 @@ export function Running() {
     navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, ownerId: initialState?.ownerId, randomize, questionLimit, distributionMode, timerDuration } });
   }, [calculateResults, questions, state.answers, navigate, mode, initialState]);
 
+  const confirmExit = useCallback(() => {
+    clearActiveQuizSnapshot();
+    navigate('/start', { replace: true });
+  }, [navigate]);
+
   useEffect(() => {
     confirmFinishRef.current = confirmFinish;
   });
@@ -219,7 +230,7 @@ export function Running() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 p-4 pb-28 sm:p-6 sm:pb-28">
-      <header className="flex items-center justify-between gap-3"><Button variant="outline" onClick={() => { clearActiveQuizSnapshot(); navigate('/start', { replace: true }); }}><LogOut /> Exit</Button><span className="font-semibold">{state.currentQuestionIndex + 1} / {questions.length}</span><span className="min-w-20 text-right font-mono font-semibold tabular-nums">{timeLeft > 0 ? `${Math.floor(timeLeft / 3600)}:${String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}:${String(timeLeft % 60).padStart(2, '0')}` : ''}</span></header>
+      <header className="flex items-center justify-between gap-3"><Button variant="outline" onClick={() => { setConfirmAction('exit'); setShowConfirm(true); }}><LogOut /> Exit</Button><span className="font-semibold">{state.currentQuestionIndex + 1} / {questions.length}</span><span className="min-w-20 text-right font-mono font-semibold tabular-nums">{timeLeft > 0 ? `${Math.floor(timeLeft / 3600)}:${String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}:${String(timeLeft % 60).padStart(2, '0')}` : ''}</span></header>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
         <div className="min-w-0">
           <QuestionCard
@@ -277,13 +288,18 @@ export function Running() {
           setShowConfirm(false);
           if (confirmAction === 'finish') {
             confirmFinish();
+          } else if (confirmAction === 'exit') {
+            confirmExit();
           }
         }}
+        title={confirmAction === 'exit' ? 'Exit quiz?' : 'Finish quiz?'}
         message={
-          confirmAction === 'finish'
-            ? 'Are you sure you want to finish the quiz?'
-            : 'Continue to next question?'
+          confirmAction === 'exit'
+            ? 'Are you sure you want to exit? Your current progress will be discarded.'
+            : 'Are you sure you want to finish the quiz?'
         }
+        confirmLabel={confirmAction === 'exit' ? 'Exit quiz' : 'Finish quiz'}
+        destructive={confirmAction === 'exit'}
       />
     </main>
   );

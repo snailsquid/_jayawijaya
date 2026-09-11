@@ -39,8 +39,8 @@ export const modulesApi = {
 
 export const paymentsApi = {
   list: () => request<{ payments: Payment[]; products: PaymentProduct[]; entitlement: ActiveEntitlement | null; config: MidtransClientConfig }>('/api/payments'),
-  create: (productCode: string) => request<{ payment: Payment; config: MidtransClientConfig }>('/api/payments', {
-    method: 'POST', body: JSON.stringify({ productCode }),
+  create: (productCode: string, amount?: number) => request<{ payment: Payment; config: MidtransClientConfig }>('/api/payments', {
+    method: 'POST', body: JSON.stringify({ productCode, ...(amount === undefined ? {} : { amount }) }),
   }),
   get: (orderId: string) => request<{ payment: Payment }>(`/api/payments/${encodeURIComponent(orderId)}`),
   cancel: (orderId: string) => request<{ payment: Payment }>(`/api/payments/${encodeURIComponent(orderId)}`, { method: 'DELETE' }),
