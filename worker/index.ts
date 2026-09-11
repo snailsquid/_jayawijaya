@@ -2,6 +2,7 @@ import { createAuth } from './auth';
 import type { Env } from './env';
 import { handleModules } from './modules';
 import { handleMidtransNotification, handlePayments } from './payments';
+import { effectiveTier } from './entitlements';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -16,6 +17,7 @@ export default {
 
     if (url.pathname === '/api/me') {
       const session = await auth.api.getSession({ headers: request.headers });
+      if (session) session.user.tier = await effectiveTier(env.DB, session.user.id, session.user.tier);
       return session
         ? Response.json({ user: session.user })
         : Response.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required.' } }, { status: 401 });

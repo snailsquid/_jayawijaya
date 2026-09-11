@@ -1,6 +1,7 @@
 import type { Auth } from './auth';
 import type { Env } from './env';
 import { assertWithinQuota, limitsFor, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
+import { effectiveTier } from './entitlements';
 
 interface AuthUser { id: string; role?: string; tier?: string }
 type ModuleBody = ModuleInput & { visibility?: unknown; enabled?: unknown; expectedRevision?: unknown; clientMutationId?: unknown };
@@ -17,15 +18,6 @@ const json = (body: unknown, status = 200) => Response.json(body, { status });
 async function currentUser(auth: Auth, request: Request): Promise<AuthUser | null> {
   const session = await auth.api.getSession({ headers: request.headers });
   return session?.user as AuthUser | null;
-}
-
-async function effectiveTier(env: Env, userId: string) {
-  const now = new Date().toISOString();
-  const active = await env.DB.prepare(`SELECT 1 ok FROM entitlements
-    WHERE user_id = ? AND active = 1 AND starts_at <= ?
-    AND (expires_at IS NULL OR expires_at > ?) LIMIT 1`)
-    .bind(userId, now, now).first();
-  return active ? 'pro' : 'free';
 }
 
 async function enforceMutationRateLimit(env: Env, userId: string) {
@@ -166,7 +158,7 @@ async function publish(env: Env, user: AuthUser, moduleId: string, body: ModuleB
 export async function handleModules(request: Request, env: Env, auth: Auth): Promise<Response> {
   const user = await currentUser(auth, request);
   if (!user) return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required.' } }, 401);
-  user.tier = await effectiveTier(env, user.id);
+  user.tier = await effectiveTier(env.DB, user.id, user.tier);
   const url = new URL(request.url);
   const path = url.pathname.split('/').filter(Boolean).slice(2).map(decodeURIComponent);
   try {

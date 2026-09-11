@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "db:migrate:local": "wrangler d1 migrations apply jayawijaya --local",
     "db:migrate:test": "wrangler d1 migrations apply jayawijaya-test --local --config wrangler.test.jsonc",
+    "access:grant-week": "wrangler d1 execute jayawijaya --remote --file scripts/grant-premium-week.sql",
     "dev:test": "vite --mode test --host 127.0.0.1",
     "build:test": "tsc -b && vite build --mode test",
     "serve:test": "wrangler dev --config wrangler.test.jsonc --ip 127.0.0.1 --port 5173",

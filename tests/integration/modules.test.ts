@@ -85,6 +85,46 @@ describe('account-owned module API', () => {
     expect((await api('/api/modules')).status).toBe(401);
   });
 
+  it('applies active global access grants and ignores expired grants', async () => {
+    const alice = await signUp('campaign-alice');
+    const expiredAt = new Date(Date.now() - 60_000).toISOString();
+    const startedAt = new Date(Date.now() - 120_000).toISOString();
+    await env.DB.prepare(`INSERT INTO access_grants
+      (id, subject_type, tier, starts_at, expires_at, reason, created_at)
+      VALUES ('expired-campaign', 'global', 'pro', ?, ?, 'Expired test', ?)`)
+      .bind(startedAt, expiredAt, startedAt).run();
+
+    const freeResponse = await api('/api/modules', alice);
+    expect((await freeResponse.json() as { limits: typeof MODULE_LIMITS.free }).limits.modules).toBe(MODULE_LIMITS.free.modules);
+
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+    await env.DB.prepare(`INSERT INTO access_grants
+      (id, subject_type, tier, starts_at, expires_at, reason, created_at)
+      VALUES ('active-campaign', 'global', 'pro', ?, ?, 'Active test', ?)`)
+      .bind(now, expiresAt, now).run();
+
+    const proResponse = await api('/api/modules', alice);
+    expect((await proResponse.json() as { limits: typeof MODULE_LIMITS.pro }).limits.modules).toBe(MODULE_LIMITS.pro.modules);
+  });
+
+  it('limits user access grants to the selected account', async () => {
+    const alice = await signUp('grant-alice');
+    const bob = await signUp('grant-bob');
+    const user = await env.DB.prepare('SELECT id FROM user WHERE email = ?')
+      .bind('grant-alice@example.test').first<{ id: string }>();
+    const now = new Date().toISOString();
+    await env.DB.prepare(`INSERT INTO access_grants
+      (id, subject_type, subject_id, tier, starts_at, expires_at, reason, created_at)
+      VALUES ('alice-grant', 'user', ?, 'pro', ?, ?, 'User test', ?)`)
+      .bind(user!.id, now, new Date(Date.now() + 60_000).toISOString(), now).run();
+
+    const aliceResponse = await api('/api/modules', alice);
+    const bobResponse = await api('/api/modules', bob);
+    expect((await aliceResponse.json() as { limits: typeof MODULE_LIMITS.pro }).limits.modules).toBe(MODULE_LIMITS.pro.modules);
+    expect((await bobResponse.json() as { limits: typeof MODULE_LIMITS.free }).limits.modules).toBe(MODULE_LIMITS.free.modules);
+  });
+
   it('creates, lists, updates, and deletes an owned module', async () => {
     const alice = await signUp('alice');
     const created = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify(moduleBody) });
