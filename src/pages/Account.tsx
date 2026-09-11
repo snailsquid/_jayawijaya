@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { authClient } from '@/lib/auth-client';
 import { paymentsApi } from '@/lib/api';
 import { clearActiveQuizSnapshot } from '@/lib/quiz-snapshot';
+import { clearCachedAccount } from '@/lib/workspace';
 import { getSubscriptionSummary } from '@/lib/subscription';
 import type { Payment } from '@/types/payment';
 import type { WorkspaceIdentity } from '@/types/offline';
@@ -22,9 +23,9 @@ export function Account({ user }: { user: WorkspaceIdentity }) {
     void paymentsApi.list().then(result => setPayments(result.payments)).catch(() => undefined);
   }, []);
 
-  const signOut = () => {
-    clearActiveQuizSnapshot();
-    void authClient.signOut({ fetchOptions: { onSuccess: () => navigate('/', { replace: true }) } });
+  const signOut = async () => {
+    await Promise.all([clearActiveQuizSnapshot(), clearCachedAccount()]);
+    await authClient.signOut({ fetchOptions: { onSuccess: () => navigate('/', { replace: true }) } });
   };
 
   return (
@@ -54,7 +55,7 @@ export function Account({ user }: { user: WorkspaceIdentity }) {
       </Card>
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><UserRound /> Session</CardTitle><CardDescription>Sign out of this account on this device.</CardDescription></CardHeader>
-        <CardContent><Button variant="outline" onClick={signOut}><LogOut /> Log out</Button></CardContent>
+        <CardContent><Button variant="outline" onClick={() => void signOut()}><LogOut /> Log out</Button></CardContent>
       </Card>
     </PageShell>
   );

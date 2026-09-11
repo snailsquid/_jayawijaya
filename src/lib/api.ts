@@ -28,7 +28,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const modulesApi = {
   list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number }; limits: { modules: number; storageBytes: number; liveModules: boolean } }>('/api/modules'),
-  create: (module: Module) => request<{ module: Module }>('/api/modules', { method: 'POST', body: JSON.stringify(module) }),
+  create: (module: Module, clientMutationId?: string) => request<{ module: Module }>('/api/modules', {
+    method: 'POST', body: JSON.stringify({ ...module, clientMutationId }),
+  }),
   update: (id: string, patch: Partial<Module>, expectedRevision?: string) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...patch, expectedRevision }) }),
   remove: (id: string, expectedRevision?: string) => request<void>(`/api/modules/${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify({ expectedRevision }) }),
   setSharing: (id: string, enabled: boolean) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}/share`, { method: 'POST', body: JSON.stringify({ enabled }) }),

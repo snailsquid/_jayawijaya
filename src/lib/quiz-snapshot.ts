@@ -1,5 +1,5 @@
 import type { Module, Question, QuizMode, QuizState } from '../types/quiz';
-import { removeDurableQuizSnapshot, saveDurableQuizSnapshot } from './offline-db';
+import { loadDurableQuizSnapshot, removeDurableQuizSnapshot, saveDurableQuizSnapshot } from './offline-db';
 
 export interface RunningState {
   ownerId: string;
@@ -21,29 +21,37 @@ export interface QuizSnapshot {
 export const snapshotKey = (ownerId: string) => `jayawijaya-running:${ownerId}`;
 export const activeOwnerKey = 'jayawijaya-active-owner';
 
-export function saveQuizSnapshot(snapshot: QuizSnapshot) {
-  localStorage.setItem(snapshotKey(snapshot.ownerId), JSON.stringify(snapshot));
-  void saveDurableQuizSnapshot(snapshot);
+export async function saveQuizSnapshot(snapshot: QuizSnapshot) {
+  // IndexedDB is the source of truth because a complete quiz can exceed localStorage's quota.
+  await saveDurableQuizSnapshot(snapshot);
+  try { localStorage.setItem(snapshotKey(snapshot.ownerId), JSON.stringify(snapshot)); }
+  catch { /* Keep the durable IndexedDB snapshot when the small synchronous cache is full. */ }
 }
 
-export function loadQuizSnapshot(ownerId: string): QuizSnapshot | null {
+function validSnapshot(snapshot: QuizSnapshot | undefined | null, ownerId: string): snapshot is QuizSnapshot {
+  return snapshot?.ownerId === ownerId && snapshot.running.ownerId === ownerId;
+}
+
+export async function loadQuizSnapshot(ownerId: string): Promise<QuizSnapshot | null> {
+  const durable = await loadDurableQuizSnapshot(ownerId).catch(() => undefined);
+  if (validSnapshot(durable, ownerId)) return durable;
   const saved = localStorage.getItem(snapshotKey(ownerId));
   if (!saved) return null;
   try {
     const parsed = JSON.parse(saved) as QuizSnapshot;
-    return parsed.ownerId === ownerId && parsed.running.ownerId === ownerId ? parsed : null;
+    return validSnapshot(parsed, ownerId) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-export function removeQuizSnapshot(ownerId: string) {
+export async function removeQuizSnapshot(ownerId: string) {
   localStorage.removeItem(snapshotKey(ownerId));
-  void removeDurableQuizSnapshot(ownerId);
+  await removeDurableQuizSnapshot(ownerId);
 }
 
-export function clearActiveQuizSnapshot() {
+export async function clearActiveQuizSnapshot() {
   const ownerId = localStorage.getItem(activeOwnerKey);
-  if (ownerId) removeQuizSnapshot(ownerId);
+  if (ownerId) await removeQuizSnapshot(ownerId);
   localStorage.removeItem(activeOwnerKey);
 }

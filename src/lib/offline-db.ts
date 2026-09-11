@@ -40,6 +40,10 @@ export async function updateWorkspace(id: string, update: (current: OfflineWorks
   return next;
 }
 
+export async function removeWorkspace(id: string) {
+  await (await database()).delete('workspaces', id);
+}
+
 export async function saveDurableQuizSnapshot(snapshot: QuizSnapshot) {
   await (await database()).put('snapshots', snapshot);
 }

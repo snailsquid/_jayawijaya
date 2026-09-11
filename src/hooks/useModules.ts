@@ -29,7 +29,7 @@ async function replayMutation(workspaceId: string, mutation: ModuleMutation) {
   const local = snapshot.modules.find(module => module.id === mutation.moduleId);
   try {
     if (mutation.kind === 'create') {
-      const { module } = await modulesApi.create(mutation.module);
+      const { module } = await modulesApi.create(mutation.module, mutation.id);
       await updateWorkspace(workspaceId, current => ({
         ...current,
         modules: current.modules.map(item => item.id === mutation.moduleId

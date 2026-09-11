@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { QuizState, Question } from '../types/quiz';
 import { useQuiz } from '../hooks/useQuiz';
@@ -42,23 +42,20 @@ export function Running() {
   const locationState = location.state as RunningState | null;
   const workspace = activeWorkspace();
   const ownerHint = locationState?.ownerId ?? localStorage.getItem(activeOwnerKey) ?? '';
-  const initialSnapshot = useMemo(() => ownerHint ? loadQuizSnapshot(ownerHint) : null, [ownerHint]);
-  const initialState = useMemo(() => {
-    if (locationState?.modules) return locationState;
-    return initialSnapshot?.running ?? null;
-  }, [locationState, initialSnapshot]);
+  const [restoredSnapshot, setRestoredSnapshot] = useState<Awaited<ReturnType<typeof loadQuizSnapshot>>>(null);
+  const [restoring, setRestoring] = useState(() => !locationState?.modules && Boolean(ownerHint));
+  const initialState = locationState?.modules ? locationState : restoredSnapshot?.running ?? null;
 
   const [quizState, setQuizState] = useState<{ questions: Question[]; state: QuizState }>(() => {
-    if (!initialState?.modules) {
+    if (!locationState?.modules) {
       return { questions: [], state: {} as QuizState };
     }
-    if (initialSnapshot?.quiz) return initialSnapshot.quiz;
     const { questions, state } = initializeQuiz(
-      initialState.modules,
-      initialState.mode,
-      initialState.randomize,
-      initialState.questionLimit,
-      initialState.distributionMode
+      locationState.modules,
+      locationState.mode,
+      locationState.randomize,
+      locationState.questionLimit,
+      locationState.distributionMode
     );
     return { questions, state };
   });
@@ -67,8 +64,8 @@ export function Running() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'exit' | 'finish' | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(() => {
-    const dur = initialState?.timerDuration;
-    const start = initialState?.timerStart;
+    const dur = locationState?.timerDuration;
+    const start = locationState?.timerStart;
     if (!dur || dur <= 0) return 0;
     if (start) {
       const elapsed = Math.floor((Date.now() - start) / 1000);
@@ -76,6 +73,22 @@ export function Running() {
     }
     return dur;
   });
+  useEffect(() => {
+    if (locationState?.modules || !ownerHint) return;
+    let active = true;
+    void loadQuizSnapshot(ownerHint).then(snapshot => {
+      if (!active) return;
+      setRestoredSnapshot(snapshot);
+      if (snapshot) {
+        setQuizState(snapshot.quiz);
+        const dur = snapshot.running.timerDuration;
+        const start = snapshot.running.timerStart;
+        setTimeLeft(!dur || dur <= 0 ? 0 : start ? Math.max(0, dur - Math.floor((Date.now() - start) / 1000)) : dur);
+      }
+      setRestoring(false);
+    });
+    return () => { active = false; };
+  }, [locationState, ownerHint]);
   const timerFinished = useRef(false);
   const confirmFinishRef = useRef<() => void>(() => {});
   const authenticatedUserId = session?.user?.id;
@@ -115,7 +128,7 @@ export function Running() {
   useEffect(() => {
     if (!isOwner || !initialState?.ownerId || !quizState.questions.length) return;
     localStorage.setItem(activeOwnerKey, initialState.ownerId);
-    saveQuizSnapshot({ ownerId: initialState.ownerId, running: initialState, quiz: quizState });
+    void saveQuizSnapshot({ ownerId: initialState.ownerId, running: initialState, quiz: quizState });
   }, [quizState, initialState, isOwner]);
 
   const { questions, state } = quizState;
@@ -200,13 +213,13 @@ export function Running() {
     const questionLimit = initialState?.questionLimit;
     const distributionMode = initialState?.distributionMode;
     const timerDuration = initialState?.timerDuration;
-    if (initialState?.ownerId) removeQuizSnapshot(initialState.ownerId);
+    if (initialState?.ownerId) void removeQuizSnapshot(initialState.ownerId);
     localStorage.removeItem(activeOwnerKey);
     navigate('/end', { state: { results, mode, questions, answers: state.answers, modules: selectedModules, ownerId: initialState?.ownerId, randomize, questionLimit, distributionMode, timerDuration } });
   }, [calculateResults, questions, state.answers, navigate, mode, initialState]);
 
   const confirmExit = useCallback(() => {
-    clearActiveQuizSnapshot();
+    void clearActiveQuizSnapshot();
     navigate('/start', { replace: true });
   }, [navigate]);
 
@@ -214,7 +227,7 @@ export function Running() {
     confirmFinishRef.current = confirmFinish;
   });
 
-  if (sessionPending && navigator.onLine && workspace.kind !== 'guest') return <main className="grid min-h-screen place-items-center p-6 font-semibold">Loading account…</main>;
+  if (restoring || (sessionPending && navigator.onLine && workspace.kind !== 'guest')) return <main className="grid min-h-screen place-items-center p-6 font-semibold">Loading account…</main>;
   if (!session?.user && workspace.kind === 'account' && navigator.onLine) return <main className="grid min-h-screen place-content-center gap-4 p-6 text-center"><p>Your quiz is safe on this device. Sign in again to continue.</p><Button onClick={() => void authClient.signIn.social({ provider: 'google', callbackURL: '/running' })}>Sign in again</Button></main>;
   const accountMismatch = Boolean(initialState?.ownerId && effectiveOwnerId !== initialState.ownerId);
   if (accountMismatch) return <main className="grid min-h-screen place-content-center gap-4 p-6 text-center"><p>This quiz belongs to another account.</p><Button onClick={() => navigate('/start', { replace: true })}>Go to my modules</Button></main>;

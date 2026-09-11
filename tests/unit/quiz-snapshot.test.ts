@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { activeOwnerKey, clearActiveQuizSnapshot, loadQuizSnapshot, removeQuizSnapshot, saveQuizSnapshot, snapshotKey, type QuizSnapshot } from '../../src/lib/quiz-snapshot';
 
 const snapshot: QuizSnapshot = {
@@ -8,45 +8,58 @@ const snapshot: QuizSnapshot = {
 };
 
 describe('quiz snapshots', () => {
-  beforeEach(() => localStorage.clear());
-
-  it('stores and restores data only for the owner', () => {
-    saveQuizSnapshot(snapshot);
-    expect(loadQuizSnapshot('alice')).toEqual(snapshot);
-    expect(loadQuizSnapshot('bob')).toBeNull();
+  beforeEach(async () => {
+    localStorage.clear();
+    await Promise.all([removeQuizSnapshot('alice'), removeQuizSnapshot('bob')]);
   });
 
-  it('rejects a snapshot with mismatched embedded ownership', () => {
+  it('stores and restores data only for the owner', async () => {
+    await saveQuizSnapshot(snapshot);
+    expect(await loadQuizSnapshot('alice')).toEqual(snapshot);
+    expect(await loadQuizSnapshot('bob')).toBeNull();
+  });
+
+  it('still saves and restores from IndexedDB when localStorage is full', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
+    await saveQuizSnapshot(snapshot);
+    setItem.mockRestore();
+
+    expect(await loadQuizSnapshot('alice')).toEqual(snapshot);
+  });
+
+  it('rejects a snapshot with mismatched embedded ownership', async () => {
     localStorage.setItem(snapshotKey('alice'), JSON.stringify({ ...snapshot, ownerId: 'bob' }));
-    expect(loadQuizSnapshot('alice')).toBeNull();
+    expect(await loadQuizSnapshot('alice')).toBeNull();
   });
 
-  it('handles corrupt data and removal', () => {
+  it('handles corrupt data and removal', async () => {
     localStorage.setItem(snapshotKey('alice'), '{');
-    expect(loadQuizSnapshot('alice')).toBeNull();
-    saveQuizSnapshot(snapshot);
-    removeQuizSnapshot('alice');
-    expect(loadQuizSnapshot('alice')).toBeNull();
+    expect(await loadQuizSnapshot('alice')).toBeNull();
+    await saveQuizSnapshot(snapshot);
+    await removeQuizSnapshot('alice');
+    expect(await loadQuizSnapshot('alice')).toBeNull();
   });
 
-  it('clears the active owner and only that owner snapshot', () => {
-    saveQuizSnapshot(snapshot);
+  it('clears the active owner and only that owner snapshot', async () => {
+    await saveQuizSnapshot(snapshot);
     const bobSnapshot = { ...snapshot, ownerId: 'bob', running: { ...snapshot.running, ownerId: 'bob' } };
-    saveQuizSnapshot(bobSnapshot);
+    await saveQuizSnapshot(bobSnapshot);
     localStorage.setItem(activeOwnerKey, 'alice');
 
-    clearActiveQuizSnapshot();
+    await clearActiveQuizSnapshot();
 
     expect(localStorage.getItem(activeOwnerKey)).toBeNull();
-    expect(loadQuizSnapshot('alice')).toBeNull();
-    expect(loadQuizSnapshot('bob')).toEqual(bobSnapshot);
+    expect(await loadQuizSnapshot('alice')).toBeNull();
+    expect(await loadQuizSnapshot('bob')).toEqual(bobSnapshot);
   });
 
-  it('serializes question content so later live-module mutations cannot alter a running quiz', () => {
+  it('serializes question content so later live-module mutations cannot alter a running quiz', async () => {
     const live = { ...snapshot, running: { ...snapshot.running, modules: [{ id: 'live', title: 'Live', currentVersion: 1, questions: [{ question: 'Original?', correct_answer: 1 }] }] } };
-    saveQuizSnapshot(live);
+    await saveQuizSnapshot(live);
     live.running.modules[0].questions[0].question = 'Published later?';
-    expect(loadQuizSnapshot('alice')?.running.modules[0].questions[0].question).toBe('Original?');
-    expect(loadQuizSnapshot('alice')?.running.modules[0].currentVersion).toBe(1);
+    expect((await loadQuizSnapshot('alice'))?.running.modules[0].questions[0].question).toBe('Original?');
+    expect((await loadQuizSnapshot('alice'))?.running.modules[0].currentVersion).toBe(1);
   });
 });

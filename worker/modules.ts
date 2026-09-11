@@ -3,7 +3,7 @@ import type { Env } from './env';
 import { assertWithinQuota, limitsFor, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
 
 interface AuthUser { id: string; role?: string; tier?: string }
-type ModuleBody = ModuleInput & { visibility?: unknown; enabled?: unknown; expectedRevision?: unknown };
+type ModuleBody = ModuleInput & { visibility?: unknown; enabled?: unknown; expectedRevision?: unknown; clientMutationId?: unknown };
 
 class ModuleConflictError extends ModuleValidationError {
   constructor(public readonly currentModule: ReturnType<typeof fromRow>) {
@@ -181,6 +181,14 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
 
     if (request.method === 'POST' && path.length === 0) {
       const body = await readBody(request); const parsed = validateModuleInput(body);
+      if (body.clientMutationId !== undefined && (typeof body.clientMutationId !== 'string' || body.clientMutationId.length < 1 || body.clientMutationId.length > 100)) {
+        throw new ModuleValidationError('Client mutation ID is invalid.', 400, 'INVALID_MUTATION_ID');
+      }
+      if (typeof body.clientMutationId === 'string') {
+        const existing = await env.DB.prepare(`${librarySelect} WHERE l.user_id = ? AND m.owner_id = ? AND m.client_mutation_id = ?`)
+          .bind(user.id, user.id, user.id, body.clientMutationId).first<Record<string, unknown>>();
+        if (existing) return json({ module: fromRow(existing) });
+      }
       if (!parsed.contentHash) throw new ModuleValidationError('Module content hash is required.');
       const visibility = body.visibility === 'live' ? 'live' : 'private';
       if (visibility === 'live' && !limitsFor(user.tier).liveModules) {
@@ -197,10 +205,10 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
         const next = Number(deleted.latest_version) + 1;
         await env.DB.batch([
           env.DB.prepare(`UPDATE modules SET title=?, description=?, category_id=NULL, content_version=?, questions_json=?,
-            byte_size=?, question_count=?, visibility=?, share_token=?, share_code=?, latest_version=?, deleted_at=NULL, updated_at=?
+            byte_size=?, question_count=?, visibility=?, share_token=?, share_code=?, latest_version=?, client_mutation_id=?, deleted_at=NULL, updated_at=?
             WHERE id=? AND owner_id=? AND deleted_at IS NOT NULL`)
             .bind(parsed.title, parsed.description, next, parsed.questionsJson, parsed.byteSize, parsed.questionCount,
-              visibility, token, shareCode, next, now, deleted.id, user.id),
+              visibility, token, shareCode, next, body.clientMutationId ?? null, now, deleted.id, user.id),
           env.DB.prepare(`INSERT INTO module_versions
             (module_id,version,title,description,content_hash,questions_json,byte_size,question_count,created_at)
             SELECT ?,?,?,?,?,?,?,?,? WHERE changes() > 0`)
@@ -218,12 +226,13 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       await env.DB.batch([
         env.DB.prepare(`INSERT INTO modules
           (id, owner_id, title, description, content_hash, content_version, questions_json, byte_size, question_count,
-           created_at, updated_at, visibility, share_token, share_code, latest_version)
-          SELECT ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, 1
+           created_at, updated_at, visibility, share_token, share_code, latest_version, client_mutation_id)
+          SELECT ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?
           WHERE (SELECT COUNT(*) FROM module_library WHERE user_id = ?) < ?
           AND (SELECT COALESCE(SUM(byte_size),0) FROM modules WHERE owner_id = ? AND deleted_at IS NULL) + ? <= ?`)
           .bind(id, user.id, parsed.title, parsed.description, parsed.contentHash, parsed.questionsJson, parsed.byteSize,
-            parsed.questionCount, now, now, visibility, token, shareCode, user.id, limitsFor(user.tier).modules, user.id, parsed.byteSize, limitsFor(user.tier).storageBytes),
+            parsed.questionCount, now, now, visibility, token, shareCode, body.clientMutationId ?? null,
+            user.id, limitsFor(user.tier).modules, user.id, parsed.byteSize, limitsFor(user.tier).storageBytes),
         env.DB.prepare(`INSERT INTO module_versions SELECT ?, 1, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`)
           .bind(id, parsed.title, parsed.description, parsed.contentHash, parsed.questionsJson, parsed.byteSize, parsed.questionCount, now),
         env.DB.prepare(`INSERT INTO module_library SELECT ?, ?, 1, ?, 0, ?, ? WHERE changes() > 0`)

@@ -96,6 +96,21 @@ describe('account-owned module API', () => {
     expect((await api(`/api/modules/${id}`, alice, { method: 'DELETE' })).status).toBe(204);
   });
 
+  it('returns the original module when a create mutation is retried', async () => {
+    const alice = await signUp('idempotent-alice');
+    const request = { ...moduleBody, hash: 'idempotent-hash', clientMutationId: 'create-mutation-1' };
+    const first = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify(request) });
+    const retry = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify(request) });
+
+    expect(first.status).toBe(201);
+    expect(retry.status).toBe(200);
+    const firstModule = (await first.json() as { module: { id: string } }).module;
+    const retriedModule = (await retry.json() as { module: { id: string } }).module;
+    expect(retriedModule.id).toBe(firstModule.id);
+    const listed = await api('/api/modules', alice);
+    expect((await listed.json() as { modules: unknown[] }).modules).toHaveLength(1);
+  });
+
   it('prevents cross-account IDOR access and permits the same hash for each owner', async () => {
     const alice = await signUp('alice');
     const bob = await signUp('bob');

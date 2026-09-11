@@ -1,6 +1,6 @@
 import type { AppUser } from './auth-client';
 import type { WorkspaceIdentity } from '../types/offline';
-import { guestWorkspace } from './offline-db';
+import { guestWorkspace, removeWorkspace } from './offline-db';
 
 const cachedAccountKey = 'jayawijaya-cached-account';
 const activeWorkspaceKey = 'jayawijaya-active-workspace';
@@ -19,6 +19,13 @@ export function cacheAccount(user: AppUser) {
 export function cachedAccount(): WorkspaceIdentity | null {
   try { return JSON.parse(localStorage.getItem(cachedAccountKey) ?? 'null') as WorkspaceIdentity | null; }
   catch { return null; }
+}
+
+export async function clearCachedAccount() {
+  const account = cachedAccount();
+  localStorage.removeItem(cachedAccountKey);
+  localStorage.removeItem(activeWorkspaceKey);
+  if (account?.kind === 'account') await removeWorkspace(account.id);
 }
 
 export function setActiveWorkspace(workspace: WorkspaceIdentity) {
