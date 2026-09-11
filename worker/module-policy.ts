@@ -1,14 +1,7 @@
+import { ACCOUNT_MODULE_LIMITS, accountLimitsFor } from '../src/lib/module-limits';
+
 export const MODULE_LIMITS = {
-  free: {
-    modules: 10,
-    storageBytes: 25 * 1024 * 1024,
-    liveModules: false,
-  },
-  pro: {
-    modules: 200,
-    storageBytes: 500 * 1024 * 1024,
-    liveModules: true,
-  },
+  ...ACCOUNT_MODULE_LIMITS,
   uploadBytes: 2 * 1024 * 1024,
   questionsPerModule: 500,
   titleLength: 200,
@@ -22,7 +15,7 @@ export const MODULE_LIMITS = {
 export type Tier = keyof Pick<typeof MODULE_LIMITS, 'free' | 'pro'>;
 
 export function limitsFor(tier?: string) {
-  return tier === 'pro' ? MODULE_LIMITS.pro : MODULE_LIMITS.free;
+  return accountLimitsFor(tier);
 }
 
 interface QuestionInput {

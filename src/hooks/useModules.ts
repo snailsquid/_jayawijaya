@@ -4,6 +4,7 @@ import type { ModuleConflict, ModuleMutation, OfflineWorkspace, WorkspaceIdentit
 import { ApiError, modulesApi } from '../lib/api';
 import { readWorkspace, updateWorkspace, writeWorkspace } from '../lib/offline-db';
 import { useOnline } from './useOnline';
+import { ACCOUNT_MODULE_LIMITS, GUEST_MODULE_LIMITS } from '../lib/module-limits';
 
 const moduleBytes = (module: Module) => new TextEncoder().encode(JSON.stringify(module.questions)).byteLength;
 const mutationId = () => crypto.randomUUID();
@@ -228,7 +229,7 @@ export function useModules(workspace: WorkspaceIdentity) {
 
   return {
     modules: store?.modules ?? [], usage: store?.usage ?? { moduleCount: 0, usedBytes: 0 },
-    limits: store?.limits ?? { modules: 100, storageBytes: 25 * 1024 * 1024, liveModules: false },
+    limits: store?.limits ?? (workspace.kind === 'guest' ? GUEST_MODULE_LIMITS : ACCOUNT_MODULE_LIMITS.free),
     loading: store === null || initializing, error, online, pendingCount: store?.queue.length ?? 0,
     syncErrors: (store?.queue ?? []).flatMap(item => item.error ? [`${item.kind} ${item.moduleId}: ${item.error}`] : []),
     conflicts: store?.conflicts ?? [], guestModules, addModules, updateModule, deleteModule, setSharing,

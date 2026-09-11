@@ -1,8 +1,8 @@
 import { openDB, type DBSchema } from 'idb';
 import type { QuizSnapshot } from './quiz-snapshot';
 import type { OfflineWorkspace, WorkspaceIdentity } from '../types/offline';
+import { ACCOUNT_MODULE_LIMITS, GUEST_MODULE_LIMITS } from './module-limits';
 
-const FREE_LIMITS = { modules: 100, storageBytes: 25 * 1024 * 1024, liveModules: false };
 export const guestWorkspace: WorkspaceIdentity = { id: 'guest', kind: 'guest', name: 'Guest' };
 
 interface OfflineSchema extends DBSchema {
@@ -18,11 +18,20 @@ const database = () => openDB<OfflineSchema>('jayawijaya-offline', 1, {
 });
 
 export function emptyWorkspace(id: string): OfflineWorkspace {
-  return { id, modules: [], usage: { moduleCount: 0, usedBytes: 0 }, limits: FREE_LIMITS, queue: [], conflicts: [] };
+  const limits = id === guestWorkspace.id ? GUEST_MODULE_LIMITS : ACCOUNT_MODULE_LIMITS.free;
+  return { id, modules: [], usage: { moduleCount: 0, usedBytes: 0 }, limits, queue: [], conflicts: [] };
+}
+
+function normalizeWorkspace(workspace: OfflineWorkspace): OfflineWorkspace {
+  // Account workspaces created before quota alignment used the guest's 100-module limit.
+  if (workspace.id !== guestWorkspace.id && workspace.limits.modules === GUEST_MODULE_LIMITS.modules) {
+    return { ...workspace, limits: ACCOUNT_MODULE_LIMITS.free };
+  }
+  return workspace;
 }
 
 export async function readWorkspace(id: string) {
-  return (await database()).get('workspaces', id).then(value => value ?? emptyWorkspace(id));
+  return (await database()).get('workspaces', id).then(value => value ? normalizeWorkspace(value) : emptyWorkspace(id));
 }
 
 export async function writeWorkspace(workspace: OfflineWorkspace) {
@@ -33,7 +42,8 @@ export async function writeWorkspace(workspace: OfflineWorkspace) {
 export async function updateWorkspace(id: string, update: (current: OfflineWorkspace) => OfflineWorkspace) {
   const db = await database();
   const tx = db.transaction('workspaces', 'readwrite');
-  const current = await tx.store.get(id) ?? emptyWorkspace(id);
+  const stored = await tx.store.get(id);
+  const current = stored ? normalizeWorkspace(stored) : emptyWorkspace(id);
   const next = update(current);
   await tx.store.put(next);
   await tx.done;

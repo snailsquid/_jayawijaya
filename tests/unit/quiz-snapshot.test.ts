@@ -29,6 +29,17 @@ describe('quiz snapshots', () => {
     expect(await loadQuizSnapshot('alice')).toEqual(snapshot);
   });
 
+  it('falls back to localStorage when IndexedDB cannot be opened', async () => {
+    const open = vi.spyOn(IDBFactory.prototype, 'open').mockImplementation(() => {
+      throw new DOMException('IndexedDB unavailable', 'InvalidStateError');
+    });
+
+    await expect(saveQuizSnapshot(snapshot)).resolves.toBeUndefined();
+    open.mockRestore();
+
+    expect(await loadQuizSnapshot('alice')).toEqual(snapshot);
+  });
+
   it('rejects a snapshot with mismatched embedded ownership', async () => {
     localStorage.setItem(snapshotKey('alice'), JSON.stringify({ ...snapshot, ownerId: 'bob' }));
     expect(await loadQuizSnapshot('alice')).toBeNull();

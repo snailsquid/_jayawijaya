@@ -22,10 +22,14 @@ export const snapshotKey = (ownerId: string) => `jayawijaya-running:${ownerId}`;
 export const activeOwnerKey = 'jayawijaya-active-owner';
 
 export async function saveQuizSnapshot(snapshot: QuizSnapshot) {
-  // IndexedDB is the source of truth because a complete quiz can exceed localStorage's quota.
-  await saveDurableQuizSnapshot(snapshot);
-  try { localStorage.setItem(snapshotKey(snapshot.ownerId), JSON.stringify(snapshot)); }
-  catch { /* Keep the durable IndexedDB snapshot when the small synchronous cache is full. */ }
+  const durableWrite = saveDurableQuizSnapshot(snapshot).then(() => true, () => false);
+  let localWrite = false;
+  try {
+    localStorage.setItem(snapshotKey(snapshot.ownerId), JSON.stringify(snapshot));
+    localWrite = true;
+  } catch { /* IndexedDB may still preserve a snapshot that exceeds this store's quota. */ }
+  const durableWriteSucceeded = await durableWrite;
+  if (!durableWriteSucceeded && !localWrite) throw new Error('Unable to save the quiz snapshot.');
 }
 
 function validSnapshot(snapshot: QuizSnapshot | undefined | null, ownerId: string): snapshot is QuizSnapshot {

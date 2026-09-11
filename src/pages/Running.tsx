@@ -128,7 +128,9 @@ export function Running() {
   useEffect(() => {
     if (!isOwner || !initialState?.ownerId || !quizState.questions.length) return;
     localStorage.setItem(activeOwnerKey, initialState.ownerId);
-    void saveQuizSnapshot({ ownerId: initialState.ownerId, running: initialState, quiz: quizState });
+    void saveQuizSnapshot({ ownerId: initialState.ownerId, running: initialState, quiz: quizState }).catch(() => {
+      // Snapshot persistence is best-effort; quiz interaction must remain usable if browser storage is unavailable.
+    });
   }, [quizState, initialState, isOwner]);
 
   const { questions, state } = quizState;

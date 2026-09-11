@@ -31,4 +31,15 @@ describe('offline workspace repository', () => {
     expect(stored.queue).toHaveLength(1);
     expect(stored.lastSyncedAt).toBe(2);
   });
+
+  it('uses the server free-tier quota for accounts and a separate guest quota', () => {
+    expect(emptyWorkspace('account').limits.modules).toBe(10);
+    expect(emptyWorkspace('guest').limits.modules).toBe(100);
+  });
+
+  it('normalizes the legacy guest quota stored on an account workspace', async () => {
+    await writeWorkspace({ ...emptyWorkspace(accountId), limits: { modules: 100, storageBytes: 25 * 1024 * 1024, liveModules: false } });
+
+    expect((await readWorkspace(accountId)).limits.modules).toBe(10);
+  });
 });
