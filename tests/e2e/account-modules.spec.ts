@@ -12,9 +12,10 @@ async function signUp(page: Page, identity: string) {
 
 test('anonymous visitors can use the guest workspace', async ({ page }) => {
   await page.goto('/start');
+  await page.getByRole('button', { name: /continue as guest/i }).click();
   await expect(page.getByRole('heading', { name: /quiz setup/i })).toBeVisible();
-  await expect(page.getByText(/guest workspace/i).first()).toBeVisible();
-  await expect(page.getByRole('button', { name: /leave guest workspace/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /check updates/i })).toBeDisabled();
 });
 
 test('OAuth callback paths are handled by Better Auth, not the SPA', async ({ request }) => {
@@ -40,7 +41,7 @@ test('imports legacy device modules once into the signed-in account', async ({ p
 test('account can upload and retain a private module', async ({ page }) => {
   await signUp(page, 'alice');
   await page.goto('/start');
-  await expect(page.getByRole('button', { name: /log out/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /account/i })).toBeVisible();
   await page.getByRole('button', { name: /new module/i }).click();
   await page.getByRole('menuitem', { name: /write yaml code/i }).click();
   await page.getByRole('textbox', { name: /paste yaml content/i }).fill(`title: E2E Liver Module
@@ -76,6 +77,7 @@ questions:
   await page.getByRole('button', { name: /^finish$/i }).click();
   await page.getByRole('button', { name: /finish quiz/i }).click();
   await page.getByRole('button', { name: /^setup$/i }).first().click();
+  await page.getByRole('button', { name: /account/i }).click();
   await page.getByRole('button', { name: /log out/i }).click();
   await page.goBack();
   await expect(page.getByText('The liver is in which quadrant?')).toHaveCount(0);
