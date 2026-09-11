@@ -4,11 +4,13 @@ import type { ActiveEntitlement, MidtransClientConfig, Payment, PaymentProduct }
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  readonly currentModule?: Module;
 
-  constructor(message: string, status: number, code: string) {
+  constructor(message: string, status: number, code: string, currentModule?: Module) {
     super(message);
     this.status = status;
     this.code = code;
+    this.currentModule = currentModule;
   }
 }
 
@@ -18,17 +20,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
   if (!response.ok) {
-    const body = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
-    throw new ApiError(body?.error?.message ?? 'Request failed.', response.status, body?.error?.code ?? 'REQUEST_FAILED');
+    const body = await response.json().catch(() => null) as { error?: { code?: string; message?: string; currentModule?: Module } } | null;
+    throw new ApiError(body?.error?.message ?? 'Request failed.', response.status, body?.error?.code ?? 'REQUEST_FAILED', body?.error?.currentModule);
   }
   return response.status === 204 ? undefined as T : response.json() as Promise<T>;
 }
 
 export const modulesApi = {
   list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number }; limits: { modules: number; storageBytes: number; liveModules: boolean } }>('/api/modules'),
-  create: (module: Module) => request<{ module: Module }>('/api/modules', { method: 'POST', body: JSON.stringify(module) }),
-  update: (id: string, patch: Partial<Module>) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) }),
-  remove: (id: string) => request<void>(`/api/modules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  create: (module: Module, clientMutationId?: string) => request<{ module: Module }>('/api/modules', {
+    method: 'POST', body: JSON.stringify({ ...module, clientMutationId }),
+  }),
+  update: (id: string, patch: Partial<Module>, expectedRevision?: string) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...patch, expectedRevision }) }),
+  remove: (id: string, expectedRevision?: string) => request<void>(`/api/modules/${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify({ expectedRevision }) }),
   setSharing: (id: string, enabled: boolean) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}/share`, { method: 'POST', body: JSON.stringify({ enabled }) }),
   publish: (id: string, module: Module) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}/publish`, { method: 'POST', body: JSON.stringify(module) }),
   resolveShare: (token: string) => request<{ module: Module }>(`/api/modules/shared/${encodeURIComponent(token)}`),

@@ -8,13 +8,15 @@ import { AuthGate } from './components/AuthGate';
 import { Pricing } from './pages/Pricing';
 import { SharedModule } from './pages/SharedModule';
 import { Account } from './pages/Account';
+import { PwaStatus } from './components/PwaStatus';
 
 function App() {
   return (
     <BrowserRouter>
+      <PwaStatus />
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/start" element={<AuthGate>{user => <Start key={user.id} user={user} />}</AuthGate>} />
+        <Route path="/start" element={<AuthGate allowGuest>{user => <Start key={user.id} user={user} />}</AuthGate>} />
         <Route path="/running" element={<Running />} />
         <Route path="/end" element={<End />} />
         <Route path="/how-to-create-modules" element={<HowToModules />} />

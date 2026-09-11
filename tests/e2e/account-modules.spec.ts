@@ -10,9 +10,12 @@ async function signUp(page: Page, identity: string) {
   return credentials;
 }
 
-test('anonymous visitors are asked to sign in', async ({ page }) => {
+test('anonymous visitors can use the guest workspace', async ({ page }) => {
   await page.goto('/start');
-  await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
+  await page.getByRole('button', { name: /continue as guest/i }).click();
+  await expect(page.getByRole('heading', { name: /quiz setup/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /check updates/i })).toBeDisabled();
 });
 
 test('OAuth callback paths are handled by Better Auth, not the SPA', async ({ request }) => {

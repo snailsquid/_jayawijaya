@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
-interface Props { modules: Module[]; selectedIds: string[]; expandedModules: Set<string>; collapsedCategories: Set<string>; onToggleModule: (id: string) => void; onToggleExpand: (id: string) => void; onDeleteModule: (id: string) => void; onToggleCollapse: (key: string) => void; onToggleSelectAll: (ids: string[], select: boolean) => void; onShare: (module: Module) => void; onEdit: (module: Module) => void; onSync: (id: string) => void }
+interface Props { modules: Module[]; selectedIds: string[]; expandedModules: Set<string>; collapsedCategories: Set<string>; cloudEnabled?: boolean; onToggleModule: (id: string) => void; onToggleExpand: (id: string) => void; onDeleteModule: (id: string) => void; onToggleCollapse: (key: string) => void; onToggleSelectAll: (ids: string[], select: boolean) => void; onShare: (module: Module) => void; onEdit: (module: Module) => void; onSync: (id: string) => void }
 
 export function ModuleList(props: Props) {
   const categories = Array.from(new Set(props.modules.map(module => module.categoryId).filter(Boolean))).sort() as string[]
@@ -27,7 +27,7 @@ export function ModuleList(props: Props) {
       {!collapsed && <CardContent className="space-y-2 px-3">{group.modules.map(module => {
         const selected = props.selectedIds.includes(module.id)
         const expanded = props.expandedModules.has(module.id)
-        const sharingUnavailable = !module.isOwner && !module.shareToken
+        const sharingUnavailable = !props.cloudEnabled || (!module.isOwner && !module.shareToken)
         return <div key={module.id} className={cn("flex min-w-0 flex-wrap items-start gap-3 rounded-md border p-3", selected && "border-primary bg-accent")}>
           <Checkbox id={`module-${module.id}`} checked={selected} onCheckedChange={() => props.onToggleModule(module.id)} className="mt-1" />
           <div className="min-w-0 basis-48 flex-1 overflow-hidden">
@@ -37,8 +37,8 @@ export function ModuleList(props: Props) {
           </div>
           <div className="ml-auto flex shrink-0 gap-1">
             {module.isOwner && <Button variant="ghost" size="icon-sm" onClick={() => props.onEdit(module)} aria-label={`Edit ${module.title}`}><Pencil /></Button>}
-            <Button variant="ghost" size="icon-sm" onClick={() => props.onShare(module)} disabled={sharingUnavailable} aria-label={sharingUnavailable ? `Sharing unavailable for ${module.title}` : `Share ${module.title}`}><Share2 /></Button>
-            {module.subscribed && !module.frozen && <Button variant="ghost" size="icon-sm" onClick={() => props.onSync(module.id)} aria-label={`Update ${module.title}`}><RefreshCw /></Button>}
+            <Button variant="ghost" size="icon-sm" onClick={() => props.onShare(module)} disabled={sharingUnavailable} title={!props.cloudEnabled ? 'Requires a signed-in internet connection' : undefined} aria-label={sharingUnavailable ? `Sharing unavailable for ${module.title}` : `Share ${module.title}`}><Share2 /></Button>
+            {module.subscribed && !module.frozen && <Button variant="ghost" size="icon-sm" disabled={!props.cloudEnabled} onClick={() => props.onSync(module.id)} aria-label={`Update ${module.title}`}><RefreshCw /></Button>}
             <Button variant="ghost" size="icon-sm" onClick={() => props.onDeleteModule(module.id)} aria-label={`Delete ${module.title}`}><Trash2 /></Button>
           </div>
         </div>
