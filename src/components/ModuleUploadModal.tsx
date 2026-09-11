@@ -106,7 +106,7 @@ export function ModuleUploadModal({ open, onClose, onUpload, onDelete, existingM
         {(!editing || tab === 'content') && <div role={editing ? 'tabpanel' : undefined} className="flex h-full min-h-0 flex-col gap-4">
           <input ref={fileRef} type="file" accept=".yaml,.yml" onChange={choose} className="sr-only" aria-label="Choose YAML file" />
           {(mode === 'file' || replacementFor) && <Button className="shrink-0" variant="outline" onClick={() => fileRef.current?.click()}><FileUp /> Choose YAML file</Button>}
-          <Textarea value={yaml} onChange={event => update(event.target.value)} placeholder="Paste YAML content here…" aria-label="Paste YAML content" spellCheck={false} className="min-h-0 flex-1 resize-none overflow-y-auto font-mono" aria-invalid={Boolean(error)} />
+          <Textarea value={yaml} onChange={event => update(event.target.value)} placeholder="Paste YAML content here…" aria-label="Paste YAML content" spellCheck={false} className="field-sizing-fixed min-h-0 flex-1 resize-none overflow-y-auto font-mono" aria-invalid={Boolean(error)} />
           {!editing && <Label className="flex shrink-0 items-center gap-2"><Checkbox checked={live} onCheckedChange={value => setLive(value === true)} /> Share as a live module</Label>}
           {error && <Alert className="max-h-24 shrink-0 overflow-y-auto" variant="destructive"><TriangleAlert /><AlertDescription>{error}</AlertDescription></Alert>}
           {duplicate && <Alert className="max-h-24 shrink-0 overflow-y-auto"><TriangleAlert /><AlertDescription>{duplicate}</AlertDescription></Alert>}
