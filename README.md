@@ -198,7 +198,7 @@ _jayawijaya/
 2. In Google Cloud Console, create an OAuth web client. Add
    `https://YOUR_HOST/api/auth/callback/google` as an authorized redirect URI.
 3. Set `BETTER_AUTH_URL` in `wrangler.jsonc` to the exact public origin.
-4. For authenticated preview deployments, set `OAUTH_PROXY_TRUSTED_ORIGINS` to a comma-separated list of exact origins or narrowly scoped wildcard patterns. The checked-in Wrangler configuration trusts Cloudflare version previews matching `https://*-jayawijaya.arkk.workers.dev`; do not broaden this to a shared hosting provider's entire domain.
+4. For authenticated custom domains and preview deployments, set `OAUTH_PROXY_TRUSTED_ORIGINS` to a comma-separated list of exact origins or narrowly scoped wildcard patterns. The checked-in Wrangler configuration trusts `acromion.org`, its subdomains, and Cloudflare version previews matching `https://*-jayawijaya.arkk.workers.dev`; do not broaden this to a shared hosting provider's entire domain.
 5. Store secrets in Cloudflare; do not add them to `wrangler.jsonc`:
 
 ```bash
@@ -218,6 +218,8 @@ wrangler deploy
 ```
 
 Google only needs the production callback, `https://YOUR_HOST/api/auth/callback/google`, even when previews use the OAuth proxy. The production callback securely returns a short-lived encrypted profile to `/api/auth/oauth-proxy-callback` on the originating trusted preview, which creates that preview's own session cookie.
+
+Better Auth derives its effective base URL from the incoming request after validating the hostname against the configured allowlist. This lets a login started on `acromion.org` or an Acromion subdomain finish on that same origin, while Google continues to use the single callback registered for `BETTER_AUTH_URL`.
 
 For local Google OAuth, create an ignored `.dev.vars` containing the same secrets, `BETTER_AUTH_URL` set to the production origin, and `OAUTH_PROXY_TRUSTED_ORIGINS=http://localhost:5173`. The shared `OAUTH_PROXY_SECRET` lets production return the OAuth result to localhost without registering a localhost callback with Google.
 
