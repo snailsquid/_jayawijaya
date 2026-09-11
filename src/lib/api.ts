@@ -42,7 +42,7 @@ export const modulesApi = {
 };
 
 export const paymentsApi = {
-  list: () => request<{ payments: Payment[]; products: PaymentProduct[]; entitlement: ActiveEntitlement | null; config: MidtransClientConfig }>('/api/payments'),
+  list: () => request<{ payments: Payment[]; products: PaymentProduct[]; entitlement: ActiveEntitlement | null; tier: 'free' | 'pro'; config: MidtransClientConfig }>('/api/payments'),
   create: (productCode: string, amount?: number) => request<{ payment: Payment; config: MidtransClientConfig }>('/api/payments', {
     method: 'POST', body: JSON.stringify({ productCode, ...(amount === undefined ? {} : { amount }) }),
   }),
