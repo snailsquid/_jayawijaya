@@ -30,8 +30,11 @@ describe('live category API',()=>{
     expect(category.localCategoryId).toBe('Rounds');
     expect((await api(`/api/categories/shared/${category.shareToken}`,bob)).status).toBe(200);
     const subscribed=await api(`/api/categories/shared/${category.shareCode.toLowerCase()}/subscribe`,bob,{method:'POST'}); expect(subscribed.status).toBe(201);
+    expect(await subscribed.json()).toMatchObject({category:{localCategoryId:'Rounds'}});
     const retry=await api(`/api/categories/shared/${category.shareCode}/subscribe`,bob,{method:'POST'}); expect(retry.status).toBe(200);
-    const modules=await api('/api/modules',bob); expect((await modules.json() as {modules:Array<{id:string}>}).modules.map(item=>item.id).sort()).toEqual([first.id,second.id].sort());
+    const modules=await api('/api/modules',bob); const subscribedModules=(await modules.json() as {modules:Array<{id:string;categoryId:string}>}).modules;
+    expect(subscribedModules.map(item=>item.id).sort()).toEqual([first.id,second.id].sort());
+    expect(subscribedModules.every(item=>item.categoryId==='Rounds')).toBe(true);
   });
 
   it('automatically makes every owned category member live when sharing starts',async()=>{

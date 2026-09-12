@@ -206,7 +206,7 @@ export async function handleCategories(request: Request, env: Env, auth: Auth): 
         const existingModules = await env.DB.prepare('SELECT module_id FROM module_library WHERE user_id=?').bind(user.id).all<{module_id:string}>();
         const existingIds = new Set(existingModules.results.map(row=>row.module_id));
         const incoming = target.filter(item=>!existingIds.has(item.moduleId)).length;
-        const now=new Date().toISOString(),localId=crypto.randomUUID();
+        const now=new Date().toISOString(),localId=String(source.name);
         const results = await env.DB.batch([
           env.DB.prepare(`INSERT INTO live_category_library(user_id,category_id,current_version,local_category_id,subscribed,created_at,updated_at)
             SELECT ?,?,?,?,1,?,? WHERE (SELECT COUNT(*) FROM module_library WHERE user_id=?)+?<=?`)
