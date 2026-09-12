@@ -603,7 +603,12 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
               onSync={(id) => void syncModule(id)}
               renderCategoryActions={(category) => user.kind === "account" ? (
                 <LiveCategoryActions
-                  category={category}
+                  category={{
+                    ...category,
+                    moduleIds: category.moduleIds.map((id) =>
+                      modules.find((module) => module.id === id)?.remoteId ?? id,
+                    ),
+                  }}
                   liveCategory={liveCategories.categories.find((item) => item.localCategoryId === category.id)}
                   disabled={!online}
                   onCreate={liveCategories.create}

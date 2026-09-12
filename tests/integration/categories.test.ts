@@ -34,14 +34,25 @@ describe('live category API',()=>{
     const modules=await api('/api/modules',bob); expect((await modules.json() as {modules:Array<{id:string}>}).modules.map(item=>item.id).sort()).toEqual([first.id,second.id].sort());
   });
 
-  it('requires every shared member to be owned and live',async()=>{
+  it('automatically makes every owned category member live when sharing starts',async()=>{
     const alice=await signUp('rules-alice'); await premium('rules-alice');
     const response=await api('/api/modules',alice,{method:'POST',body:JSON.stringify({...body('Private'),visibility:'private'})});
     const module=(await response.json() as {module:{id:string}}).module;
     const draft=await api('/api/categories',alice,{method:'POST',body:JSON.stringify({name:'Draft',moduleIds:[module.id]})}); expect(draft.status).toBe(201);
     const category=(await draft.json() as {category:{id:string}}).category;
     const share=await api(`/api/categories/${category.id}/share`,alice,{method:'POST',body:JSON.stringify({enabled:true})});
-    expect(share.status).toBe(422); expect(await share.json()).toMatchObject({error:{code:'INVALID_CATEGORY_MODULE'}});
+    expect(share.status).toBe(200);
+    const modules=await api('/api/modules',alice);
+    expect(await modules.json()).toMatchObject({modules:[{id:module.id,visibility:'live',shareCode:expect.stringMatching(/^[A-Z2-9]{4}$/)}]});
+  });
+
+  it('still rejects category members that are not active owned modules',async()=>{
+    const alice=await signUp('invalid-owner'),bob=await signUp('invalid-member'); await premium('invalid-owner');
+    const response=await api('/api/modules',bob,{method:'POST',body:JSON.stringify({...body('Foreign'),visibility:'private'})});
+    const foreign=(await response.json() as {module:{id:string}}).module;
+    const created=await api('/api/categories',alice,{method:'POST',body:JSON.stringify({name:'Invalid',moduleIds:[foreign.id],visibility:'live'})});
+    expect(created.status).toBe(422);
+    expect(await created.json()).toMatchObject({error:{code:'INVALID_CATEGORY_MODULE'}});
   });
 
   it('syncs category membership and freezes the subscriber snapshot after unshare',async()=>{

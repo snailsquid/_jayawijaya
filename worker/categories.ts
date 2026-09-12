@@ -88,6 +88,22 @@ async function validateOwnedModules(env: Env, ownerId: string, moduleIds: string
   return versions;
 }
 
+async function activateOwnedModules(env: Env, ownerId: string, moduleIds: string[]) {
+  const versions = await validateOwnedModules(env, ownerId, moduleIds);
+  const placeholders = moduleIds.map(() => '?').join(',');
+  const privateModules = await env.DB.prepare(`SELECT id FROM modules
+    WHERE owner_id=? AND deleted_at IS NULL AND visibility<>'live' AND id IN (${placeholders})`)
+    .bind(ownerId, ...moduleIds).all<{ id: string }>();
+  const now = new Date().toISOString();
+  if (privateModules.results.length) {
+    await env.DB.batch(await Promise.all(privateModules.results.map(async module => env.DB.prepare(`UPDATE modules
+      SET visibility='live',share_token=?,share_code=?,updated_at=?
+      WHERE id=? AND owner_id=? AND deleted_at IS NULL AND visibility<>'live'`)
+      .bind(crypto.randomUUID().replaceAll('-', ''), await createShareCode(env), now, module.id, ownerId))));
+  }
+  return versions;
+}
+
 async function insertVersion(env: Env, categoryId: string, version: number, name: string, moduleIds: string[], versions: Map<string, number>, now: string) {
   await env.DB.batch([
     env.DB.prepare('INSERT INTO live_category_versions(category_id,version,name,created_at) VALUES(?,?,?,?)').bind(categoryId, version, name, now),
@@ -162,7 +178,9 @@ export async function handleCategories(request: Request, env: Env, auth: Auth): 
       }
       const wantsLive = rawBody.visibility === 'live';
       if (wantsLive && !limitsFor(user.tier).liveModules) throw new ModuleValidationError('Sharing live categories requires VIP, VIP+, or MVP.', 403, 'PREMIUM_REQUIRED');
-      const versions = await validateOwnedModules(env, user.id, input.moduleIds, wantsLive);
+      const versions = wantsLive
+        ? await activateOwnedModules(env, user.id, input.moduleIds)
+        : await validateOwnedModules(env, user.id, input.moduleIds);
       const id = crypto.randomUUID(), now = new Date().toISOString(), localId = input.localCategoryId ?? crypto.randomUUID();
       const token = wantsLive ? crypto.randomUUID().replaceAll('-', '') : null, code = wantsLive ? await createShareCode(env) : null;
       await env.DB.prepare(`INSERT INTO live_categories(id,owner_id,visibility,share_token,share_code,latest_version,client_mutation_id,created_at,updated_at)
@@ -231,7 +249,7 @@ export async function handleCategories(request: Request, env: Env, auth: Auth): 
       if (enabled) {
         const current = await getCategory(env,user.id,categoryId);
         if (!current || current.owner_id!==user.id) throw new ModuleValidationError('Category not found.',404,'NOT_FOUND');
-        await validateOwnedModules(env,user.id,(await members(env,categoryId,Number(current.current_version))).map(item=>item.moduleId),true);
+        await activateOwnedModules(env,user.id,(await members(env,categoryId,Number(current.current_version))).map(item=>item.moduleId));
       }
       const result=await env.DB.prepare(`UPDATE live_categories SET visibility=?,share_token=?,share_code=?,updated_at=?
         WHERE id=? AND owner_id=? AND deleted_at IS NULL`).bind(enabled?'live':'private',enabled?crypto.randomUUID().replaceAll('-',''):null,enabled?await createShareCode(env):null,new Date().toISOString(),categoryId,user.id).run();
