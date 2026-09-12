@@ -55,6 +55,11 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
     subscribeByCode,
   } = useModules(user);
   const liveCategories = useLiveCategories(user.kind === "account");
+  const {
+    categories: liveCategoryRecords,
+    loading: liveCategoriesLoading,
+    remove: removeLiveCategory,
+  } = liveCategories;
   const [config, setConfig] = useLocalStorage<QuizConfig>(
     `jayawijaya-config:${user.id}`,
     {
@@ -114,6 +119,20 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
         m.categoryId?.toLowerCase().includes(query),
     );
   }, [modules, searchQuery]);
+
+  useEffect(() => {
+    if (user.kind !== "account" || loading || liveCategoriesLoading || modulesError || !online) return;
+    const activeCategories = new Set(categories);
+    for (const category of liveCategoryRecords) {
+      if (category.isOwner && !activeCategories.has(category.localCategoryId)) {
+        void removeLiveCategory(category.id).catch((reason) =>
+          setMutationError(
+            reason instanceof Error ? reason.message : "Unable to reset empty live category.",
+          ),
+        );
+      }
+    }
+  }, [categories, liveCategoriesLoading, liveCategoryRecords, loading, modulesError, online, removeLiveCategory, user.kind]);
 
   const handleUpload = useCallback(
     async (newModules: Module[]) => {

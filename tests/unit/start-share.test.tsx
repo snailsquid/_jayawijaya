@@ -8,6 +8,8 @@ import type { Module } from "../../src/types/quiz";
 const moduleState = vi.hoisted(() => ({
   module: null as Module | null,
   setSharing: vi.fn(),
+  liveCategories: [] as Array<{ id: string; localCategoryId: string; isOwner: boolean }>,
+  removeLiveCategory: vi.fn(),
 }));
 
 vi.mock("../../src/hooks/useModules", () => ({
@@ -38,6 +40,18 @@ vi.mock("../../src/hooks/useModules", () => ({
 
 vi.mock("../../src/hooks/useLocalStorage", () => ({
   useLocalStorage: (_key: string, initial: unknown) => [initial, vi.fn()],
+}));
+
+vi.mock("../../src/hooks/useLiveCategories", () => ({
+  useLiveCategories: () => ({
+    categories: moduleState.liveCategories,
+    loading: false,
+    error: "",
+    remove: moduleState.removeLiveCategory,
+    create: vi.fn(),
+    publish: vi.fn(),
+    setSharing: vi.fn(),
+  }),
 }));
 
 vi.mock("../../src/components/ModuleList", () => ({
@@ -83,6 +97,8 @@ describe("Start module sharing", () => {
   beforeEach(() => {
     moduleState.module = liveModule;
     moduleState.setSharing.mockReset();
+    moduleState.liveCategories = [];
+    moduleState.removeLiveCategory.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "share", {
       configurable: true,
       value: undefined,
@@ -138,5 +154,14 @@ describe("Start module sharing", () => {
     expect(await screen.findByTestId("share-modal")).toHaveTextContent(
       /\/shared\/ABC123$/,
     );
+  });
+
+  it("resets an owned live category after its last local module is removed", async () => {
+    moduleState.module = null;
+    moduleState.liveCategories = [{ id: "live-category-1", localCategoryId: "Rounds", isOwner: true }];
+
+    renderStart();
+
+    await waitFor(() => expect(moduleState.removeLiveCategory).toHaveBeenCalledWith("live-category-1"));
   });
 });

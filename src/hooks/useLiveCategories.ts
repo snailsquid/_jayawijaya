@@ -17,6 +17,10 @@ export function useLiveCategories(enabled = true) {
 
   useEffect(() => { void reload(); }, [reload]);
   const replace = (category: LiveCategory) => setCategories(current => current.map(item => item.id === category.id ? category : item));
+  const remove = useCallback(async (id: string) => {
+    await categoriesApi.remove(id);
+    setCategories(current => current.filter(item => item.id !== id));
+  }, []);
 
   return {
     categories, loading, error, reload,
@@ -31,7 +35,7 @@ export function useLiveCategories(enabled = true) {
       const { category } = await categoriesApi.setSharing(id, enabledSharing); replace(category); return category;
     },
     sync: async (id: string) => { const response = await categoriesApi.sync(id); replace(response.category); return response; },
-    remove: async (id: string) => { await categoriesApi.remove(id); setCategories(current => current.filter(item => item.id !== id)); },
+    remove,
     subscribeByCode: async (code: string) => { const { category } = await categoriesApi.subscribe(code.trim().toUpperCase()); setCategories(current => current.some(item => item.id === category.id) ? current : [category, ...current]); return category; },
   };
 }
