@@ -8,6 +8,9 @@ import { ModeSelector } from "../components/ModeSelector";
 import { ModuleUploader } from "../components/ModuleUploader";
 import { ModuleList } from "../components/ModuleList";
 import { ModuleUploadModal } from "../components/ModuleUploadModal";
+import { ShareModuleModal } from "../components/ShareModuleModal";
+import { LiveCategoryActions } from "../components/LiveCategoryActions";
+import { useLiveCategories } from "../hooks/useLiveCategories";
 import { ArrowLeft, BookOpen, RefreshCw, Search, Trash2, UserRound } from "lucide-react";
 import { PageHeader, PageShell } from "@/components/app-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -39,7 +42,6 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
     online,
     pendingCount,
     syncErrors,
-    conflicts,
     guestModules,
     addModules,
     updateModule,
@@ -49,10 +51,10 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
     syncModule,
     syncAll,
     syncNow,
-    resolveConflict,
     importGuestModules,
     subscribeByCode,
   } = useModules(user);
+  const liveCategories = useLiveCategories(user.kind === "account");
   const [config, setConfig] = useLocalStorage<QuizConfig>(
     `jayawijaya-config:${user.id}`,
     {
@@ -77,6 +79,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
   );
   const [mutationError, setMutationError] = useState("");
   const [replacement, setReplacement] = useState<Module | null>(null);
+  const [sharingModule, setSharingModule] = useState<Module | null>(null);
   const [syncMessage, setSyncMessage] = useState("");
   const [guestImportIds, setGuestImportIds] = useState<string[] | null>(null);
   const [legacyModules, setLegacyModules] = useState<Module[]>(() => {
@@ -127,17 +130,50 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
     [addModules],
   );
 
-  const handleSharing = useCallback(
-    async (module: Module) => {
+  const shareUrl = useCallback(
+    (module: Module) =>
+      `${window.location.origin}${import.meta.env.BASE_URL}shared/${module.shareToken ?? module.shareCode}`,
+    [],
+  );
+
+  const handleShare = useCallback(
+    async (source: Module) => {
+      setMutationError("");
       try {
-        await setSharing(module.id, module.visibility !== "live");
+        if (
+          source.visibility !== "live" &&
+          !window.confirm(
+            "Make this a live module so other people can subscribe to it?",
+          )
+        )
+          return;
+        const module =
+          source.visibility === "live"
+            ? source
+            : await setSharing(source.id, true);
+        if (!module.shareToken && !module.shareCode)
+          throw new Error("Sharing is not available for this module.");
+        const data = {
+          title: module.title,
+          text: `Try the ${module.title} quiz module`,
+          url: shareUrl(module),
+        };
+        if (navigator.share) {
+          try {
+            await navigator.share(data);
+            return;
+          } catch {
+            // Native sharing can be unavailable or dismissed; keep the link usable.
+          }
+        }
+        setSharingModule(module);
       } catch (reason) {
         setMutationError(
-          reason instanceof Error ? reason.message : "Sharing update failed.",
+          reason instanceof Error ? reason.message : "Sharing failed.",
         );
       }
     },
-    [setSharing],
+    [setSharing, shareUrl],
   );
 
   const handleSyncAll = useCallback(async () => {
@@ -425,7 +461,15 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
             <ModuleUploader
               onUpload={handleUpload}
               existingModules={modules}
-              onImportCode={async (code) => { await subscribeByCode(code); }}
+              onImportCode={async (code) => {
+                try {
+                  await subscribeByCode(code);
+                } catch (reason) {
+                  if (!(reason instanceof ApiError && reason.code === "SHARE_NOT_FOUND")) throw reason;
+                  await liveCategories.subscribeByCode(code);
+                  await syncNow();
+                }
+              }}
             />
           </div>
         </CardHeader>
@@ -513,30 +557,6 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
               </AlertDescription>
             </Alert>
           )}
-          {conflicts.map((conflict) => (
-            <Alert key={conflict.id} variant="destructive">
-              <AlertTitle>
-                Sync conflict:{" "}
-                {conflict.localModule?.title ?? conflict.serverModule.title}
-              </AlertTitle>
-              <AlertDescription className="mt-2 flex flex-wrap gap-2">
-                <span>This module changed locally and on the server.</span>
-                <Button
-                  size="sm"
-                  onClick={() => void resolveConflict(conflict.id, "local")}
-                >
-                  Keep mine
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void resolveConflict(conflict.id, "server")}
-                >
-                  Use server
-                </Button>
-              </AlertDescription>
-            </Alert>
-          ))}
           {legacyModules.length > 0 && (
             <Alert>
               <AlertTitle>
@@ -578,9 +598,19 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
               onDeleteModule={handleDeleteModule}
               onToggleCollapse={handleToggleCollapse}
               onToggleSelectAll={handleToggleSelectAll}
-              onShare={(module) => void handleSharing(module)}
+              onShare={(module) => void handleShare(module)}
               onEdit={setReplacement}
               onSync={(id) => void syncModule(id)}
+              renderCategoryActions={(category) => user.kind === "account" ? (
+                <LiveCategoryActions
+                  category={category}
+                  liveCategory={liveCategories.categories.find((item) => item.localCategoryId === category.id)}
+                  disabled={!online}
+                  onCreate={liveCategories.create}
+                  onPublish={liveCategories.publish}
+                  onSetSharing={liveCategories.setSharing}
+                />
+              ) : null}
             />
           )}
           {hasSelection && (
@@ -623,6 +653,14 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
             await publishModule(replacement.id, module);
             setReplacement(null);
           }}
+        />
+      )}
+      {(sharingModule?.shareToken || sharingModule?.shareCode) && (
+        <ShareModuleModal
+          module={sharingModule}
+          url={shareUrl(sharingModule)}
+          onClose={() => setSharingModule(null)}
+          onCopied={setSyncMessage}
         />
       )}
       <Card>

@@ -89,7 +89,8 @@ async function createShareCode(env: Env): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const bytes = crypto.getRandomValues(new Uint8Array(4));
     const code = Array.from(bytes, byte => SHARE_CODE_ALPHABET[byte % SHARE_CODE_ALPHABET.length]).join('');
-    const existing = await env.DB.prepare('SELECT 1 ok FROM modules WHERE share_code = ?').bind(code).first();
+    const existing = await env.DB.prepare(`SELECT 1 ok FROM modules WHERE share_code = ?
+      UNION ALL SELECT 1 ok FROM live_categories WHERE share_code = ? LIMIT 1`).bind(code, code).first();
     if (!existing) return code;
   }
   throw new ModuleValidationError('Could not allocate a share code. Try again.', 503, 'SHARE_CODE_UNAVAILABLE');

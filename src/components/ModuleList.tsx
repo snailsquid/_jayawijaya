@@ -1,12 +1,13 @@
 import { ChevronDown, ChevronRight, Pencil, RefreshCw, Share2, Trash2 } from "lucide-react"
-import type { Module } from "@/types/quiz"
+import type { Category, Module } from "@/types/quiz"
+import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
-interface Props { modules: Module[]; selectedIds: string[]; expandedModules: Set<string>; collapsedCategories: Set<string>; cloudEnabled?: boolean; onToggleModule: (id: string) => void; onToggleExpand: (id: string) => void; onDeleteModule: (id: string) => void; onToggleCollapse: (key: string) => void; onToggleSelectAll: (ids: string[], select: boolean) => void; onShare: (module: Module) => void; onEdit: (module: Module) => void; onSync: (id: string) => void }
+interface Props { modules: Module[]; selectedIds: string[]; expandedModules: Set<string>; collapsedCategories: Set<string>; cloudEnabled?: boolean; onToggleModule: (id: string) => void; onToggleExpand: (id: string) => void; onDeleteModule: (id: string) => void; onToggleCollapse: (key: string) => void; onToggleSelectAll: (ids: string[], select: boolean) => void; onShare: (module: Module) => void; onEdit: (module: Module) => void; onSync: (id: string) => void; renderCategoryActions?: (category: Category) => ReactNode }
 
 export function ModuleList(props: Props) {
   const categories = Array.from(new Set(props.modules.map(module => module.categoryId).filter(Boolean))).sort() as string[]
@@ -22,7 +23,10 @@ export function ModuleList(props: Props) {
     return <Card key={group.key} className="gap-2 py-3">
       <CardHeader className="flex flex-row items-center justify-between gap-2 px-3">
         <Button variant="ghost" className="min-w-0 justify-start px-1 font-semibold" onClick={() => props.onToggleCollapse(group.key)} aria-expanded={!collapsed}>{collapsed ? <ChevronRight /> : <ChevronDown />}<span className="truncate">{group.title}</span></Button>
-        {!collapsed && <Button size="sm" variant="outline" onClick={() => props.onToggleSelectAll(ids, !all)}>{all ? 'Deselect all' : 'Select all'}</Button>}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {group.key !== '__uncategorized__' && props.renderCategoryActions?.({ id: group.key, name: group.title, moduleIds: ids })}
+          {!collapsed && <Button size="sm" variant="outline" onClick={() => props.onToggleSelectAll(ids, !all)}>{all ? 'Deselect all' : 'Select all'}</Button>}
+        </div>
       </CardHeader>
       {!collapsed && <CardContent className="space-y-2 px-3">{group.modules.map(module => {
         const selected = props.selectedIds.includes(module.id)

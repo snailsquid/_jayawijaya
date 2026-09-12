@@ -1,4 +1,4 @@
-import type { Module } from '../types/quiz';
+import type { LiveCategory, Module } from '../types/quiz';
 import type { ActiveEntitlement, MidtransClientConfig, Payment, PaymentProduct } from '../types/payment';
 
 export class ApiError extends Error {
@@ -39,6 +39,19 @@ export const modulesApi = {
   subscribe: (token: string) => request<{ module: Module }>(`/api/modules/shared/${encodeURIComponent(token)}/subscribe`, { method: 'POST' }),
   sync: (id: string) => request<{ module: Module }>(`/api/modules/${encodeURIComponent(id)}/sync`, { method: 'POST' }),
   syncAll: () => request<{ modules: Module[]; updated: number }>('/api/modules/sync', { method: 'POST' }),
+};
+
+export const categoriesApi = {
+  list: () => request<{ categories: LiveCategory[] }>('/api/categories'),
+  create: (category: { name: string; moduleIds: string[]; localCategoryId?: string; visibility?: 'private' | 'live' }, clientMutationId?: string) =>
+    request<{ category: LiveCategory }>('/api/categories', { method: 'POST', body: JSON.stringify({ ...category, clientMutationId }) }),
+  update: (id: string, category: { name: string; moduleIds: string[] }, expectedVersion?: number) =>
+    request<{ category: LiveCategory }>(`/api/categories/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...category, expectedVersion }) }),
+  remove: (id: string) => request<void>(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  setSharing: (id: string, enabled: boolean) => request<{ category: LiveCategory }>(`/api/categories/${encodeURIComponent(id)}/share`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+  resolveShare: (token: string) => request<{ category: LiveCategory }>(`/api/categories/shared/${encodeURIComponent(token)}`),
+  subscribe: (token: string) => request<{ category: LiveCategory }>(`/api/categories/shared/${encodeURIComponent(token)}/subscribe`, { method: 'POST' }),
+  sync: (id: string) => request<{ category: LiveCategory; updated: boolean }>(`/api/categories/${encodeURIComponent(id)}/sync`, { method: 'POST' }),
 };
 
 export const paymentsApi = {

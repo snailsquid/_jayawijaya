@@ -3,6 +3,7 @@ import type { Env } from './env';
 import { handleModules } from './modules';
 import { handleMidtransNotification, handlePayments } from './payments';
 import { effectiveTier } from './entitlements';
+import { handleCategories } from './categories';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -24,6 +25,7 @@ export default {
     }
 
     if (url.pathname.startsWith('/api/modules')) return handleModules(request, env, auth);
+    if (url.pathname.startsWith('/api/categories')) return handleCategories(request, env, auth);
     if (url.pathname.startsWith('/api/payments')) return handlePayments(request, env, auth);
 
     return env.ASSETS.fetch(request);

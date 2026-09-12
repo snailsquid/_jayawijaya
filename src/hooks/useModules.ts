@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Module } from '../types/quiz';
-import type { ModuleConflict, ModuleMutation, OfflineWorkspace, WorkspaceIdentity } from '../types/offline';
+import type { ModuleMutation, OfflineWorkspace, WorkspaceIdentity } from '../types/offline';
 import { ApiError, modulesApi } from '../lib/api';
 import { readWorkspace, updateWorkspace, writeWorkspace } from '../lib/offline-db';
 import { useOnline } from './useOnline';
@@ -10,6 +10,7 @@ const moduleBytes = (module: Module) => new TextEncoder().encode(JSON.stringify(
 const mutationId = () => crypto.randomUUID();
 const remoteId = (module: Module | undefined, fallback: string) => module?.remoteId ?? fallback;
 const isConnectivityError = (error: unknown) => !navigator.onLine || error instanceof TypeError;
+const MAX_REBASE_ATTEMPTS = 3;
 
 function localUsage(modules: Module[]) {
   return {
@@ -25,10 +26,13 @@ function mergeServerModules(local: Module[], server: Module[]) {
   });
 }
 
-async function replayMutation(workspaceId: string, mutation: ModuleMutation) {
-  const snapshot = await readWorkspace(workspaceId);
-  const local = snapshot.modules.find(module => module.id === mutation.moduleId);
-  try {
+async function replayMutation(workspaceId: string, originalMutation: ModuleMutation) {
+  let mutation = originalMutation;
+  let failureMessage = 'Synchronization failed.';
+  for (let attempt = 0; attempt < MAX_REBASE_ATTEMPTS; attempt += 1) {
+   const snapshot = await readWorkspace(workspaceId);
+   const local = snapshot.modules.find(module => module.id === mutation.moduleId);
+   try {
     if (mutation.kind === 'create') {
       const { module } = await modulesApi.create(mutation.module, mutation.id);
       await updateWorkspace(workspaceId, current => ({
@@ -41,7 +45,7 @@ async function replayMutation(workspaceId: string, mutation: ModuleMutation) {
       return;
     }
     if (mutation.kind === 'update') {
-      const { module } = await modulesApi.update(remoteId(local, mutation.moduleId), mutation.patch, mutation.baseRevision);
+      const { module } = await modulesApi.update(mutation.remoteId ?? remoteId(local, mutation.moduleId), mutation.patch, mutation.baseRevision);
       await updateWorkspace(workspaceId, current => ({
         ...current,
         modules: current.modules.map(item => item.id === mutation.moduleId
@@ -51,31 +55,40 @@ async function replayMutation(workspaceId: string, mutation: ModuleMutation) {
       }));
       return;
     }
-    await modulesApi.remove(remoteId(local, mutation.moduleId), mutation.baseRevision);
+    await modulesApi.remove(mutation.remoteId ?? remoteId(local, mutation.moduleId), mutation.baseRevision);
     await updateWorkspace(workspaceId, current => ({ ...current, queue: current.queue.filter(item => item.id !== mutation.id) }));
-  } catch (error) {
+    return;
+   } catch (error) {
     if (error instanceof ApiError && error.code === 'VERSION_CONFLICT' && error.currentModule) {
-      const conflict: ModuleConflict = {
-        id: mutation.id,
-        mutation,
-        localModule: local,
-        serverModule: { ...error.currentModule, id: mutation.moduleId, remoteId: error.currentModule.id },
-      };
+      failureMessage = error.message;
+      if (attempt === MAX_REBASE_ATTEMPTS - 1) break;
+      const serverModule = { ...error.currentModule, id: mutation.moduleId, remoteId: error.currentModule.id };
+      mutation = mutation.kind === 'create' ? mutation : { ...mutation, baseRevision: error.currentModule.revision };
+      const updatePatch = mutation.kind === 'update' ? mutation.patch : null;
       await updateWorkspace(workspaceId, current => ({
         ...current,
-        queue: current.queue.filter(item => item.id !== mutation.id),
-        conflicts: [...current.conflicts.filter(item => item.id !== mutation.id), conflict],
+        modules: updatePatch
+          ? current.modules.map(item => item.id === mutation.moduleId ? { ...serverModule, ...updatePatch, id: item.id, remoteId: serverModule.remoteId } : item)
+          : current.modules,
+        queue: current.queue.map(item => item.id === mutation.id ? mutation : item),
       }));
-      return;
+      continue;
     }
     if (isConnectivityError(error)) throw error;
-    await updateWorkspace(workspaceId, current => ({
-      ...current,
-      queue: current.queue.map(item => item.id === mutation.id
-        ? { ...item, error: error instanceof Error ? error.message : 'Synchronization failed.' }
-        : item),
-    }));
+    failureMessage = error instanceof Error ? error.message : 'Synchronization failed.';
+    break;
+   }
   }
+  await updateWorkspace(workspaceId, current => ({
+    ...current,
+    queue: current.queue.filter(item => item.id !== mutation.id),
+    failures: [...current.failures.filter(item => item.id !== mutation.id), {
+      id: mutation.id,
+      mutation: { ...mutation, error: undefined } as ModuleMutation,
+      message: `${mutation.kind} ${mutation.moduleId}: ${failureMessage}`,
+      failedAt: Date.now(),
+    }],
+  }));
 }
 
 export function useModules(workspace: WorkspaceIdentity) {
@@ -99,7 +112,7 @@ export function useModules(workspace: WorkspaceIdentity) {
         await replayMutation(workspace.id, mutation);
       }
       const pending = await readWorkspace(workspace.id);
-      if (pending.queue.length === 0 && pending.conflicts.length === 0) {
+      if (pending.queue.length === 0) {
         const response = await modulesApi.list();
         const modules = mergeServerModules(pending.modules, response.modules);
         await writeWorkspace({ ...pending, modules, usage: response.usage, limits: response.limits, lastSyncedAt: Date.now() });
@@ -154,7 +167,7 @@ export function useModules(workspace: WorkspaceIdentity) {
       const queue = workspace.kind === 'account'
         ? [...current.queue, ...modules.map(module => ({ id: mutationId(), kind: 'create' as const, moduleId: module.id, module, createdAt: Date.now() }))]
         : current.queue;
-      return { ...current, modules: [...modules, ...current.modules], queue };
+      return { ...current, modules: [...modules, ...current.modules], queue, failures: current.failures.filter(failure => !modules.some(module => module.id === failure.mutation.moduleId)) };
     });
   }, [commit, workspace.kind]);
 
@@ -169,8 +182,8 @@ export function useModules(workspace: WorkspaceIdentity) {
         return { ...current, modules, queue: current.queue.map(item => item.id === create.id ? { ...create, module: { ...create.module, ...patch } } : item) };
       }
       const existing = current.queue.find(item => item.moduleId === id && item.kind === 'update');
-      const next: ModuleMutation = { id: existing?.id ?? mutationId(), kind: 'update', moduleId: id, patch: { ...(existing?.kind === 'update' ? existing.patch : {}), ...patch }, baseRevision: existing?.kind === 'update' ? existing.baseRevision : original.revision, createdAt: existing?.createdAt ?? Date.now() };
-      return { ...current, modules, queue: [...current.queue.filter(item => item.id !== existing?.id), next] };
+      const next: ModuleMutation = { id: existing?.id ?? mutationId(), kind: 'update', moduleId: id, remoteId: existing?.kind === 'update' ? existing.remoteId : original.remoteId, patch: { ...(existing?.kind === 'update' ? existing.patch : {}), ...patch }, baseRevision: existing?.kind === 'update' ? existing.baseRevision : original.revision, createdAt: existing?.createdAt ?? Date.now() };
+      return { ...current, modules, queue: [...current.queue.filter(item => item.id !== existing?.id), next], failures: current.failures.filter(failure => failure.mutation.moduleId !== id) };
     });
   }, [commit, workspace.kind]);
 
@@ -182,8 +195,8 @@ export function useModules(workspace: WorkspaceIdentity) {
       const pendingCreate = current.queue.some(item => item.moduleId === id && item.kind === 'create');
       const queue = pendingCreate
         ? current.queue.filter(item => item.moduleId !== id)
-        : [...current.queue.filter(item => item.moduleId !== id), { id: mutationId(), kind: 'delete' as const, moduleId: id, baseRevision: original.revision, createdAt: Date.now() }];
-      return { ...current, modules: current.modules.filter(module => module.id !== id), queue };
+        : [...current.queue.filter(item => item.moduleId !== id), { id: mutationId(), kind: 'delete' as const, moduleId: id, remoteId: original.remoteId, baseRevision: original.revision, createdAt: Date.now() }];
+      return { ...current, modules: current.modules.filter(module => module.id !== id), queue, failures: current.failures.filter(failure => failure.mutation.moduleId !== id) };
     });
   }, [commit, workspace.kind]);
 
@@ -201,22 +214,6 @@ export function useModules(workspace: WorkspaceIdentity) {
   const syncModule = useCallback(async (id: string) => { cloudOnly(); const { module } = await modulesApi.sync(remoteId(store?.modules.find(item => item.id === id), id)); await commit(current => ({ ...current, modules: current.modules.map(item => item.id === id ? { ...module, id, remoteId: item.remoteId } : item) })); }, [cloudOnly, commit, store?.modules]);
   const syncAll = useCallback(async () => { cloudOnly(); await syncNow(); return 0; }, [cloudOnly, syncNow]);
 
-  const resolveConflict = useCallback(async (conflictId: string, choice: 'local' | 'server') => {
-    await commit(current => {
-      const conflict = current.conflicts.find(item => item.id === conflictId);
-      if (!conflict) return current;
-      if (choice === 'server') return {
-        ...current,
-        modules: current.modules.some(item => item.id === conflict.mutation.moduleId)
-          ? current.modules.map(item => item.id === conflict.mutation.moduleId ? conflict.serverModule : item)
-          : [conflict.serverModule, ...current.modules],
-        conflicts: current.conflicts.filter(item => item.id !== conflictId),
-      };
-      const mutation = { ...conflict.mutation, id: mutationId(), baseRevision: conflict.serverModule.revision, error: undefined } as ModuleMutation;
-      return { ...current, queue: [...current.queue, mutation], conflicts: current.conflicts.filter(item => item.id !== conflictId) };
-    });
-  }, [commit]);
-
   const importGuestModules = useCallback(async (selectedIds?: string[]) => {
     if (workspace.kind !== 'account') return 0;
     const guest = await readWorkspace('guest');
@@ -231,9 +228,9 @@ export function useModules(workspace: WorkspaceIdentity) {
     modules: store?.modules ?? [], usage: store?.usage ?? { moduleCount: 0, usedBytes: 0 },
     limits: store?.limits ?? (workspace.kind === 'guest' ? GUEST_MODULE_LIMITS : ACCOUNT_MODULE_LIMITS.free),
     loading: store === null || initializing, error, online, pendingCount: store?.queue.length ?? 0,
-    syncErrors: (store?.queue ?? []).flatMap(item => item.error ? [`${item.kind} ${item.moduleId}: ${item.error}`] : []),
+    syncErrors: (store?.failures ?? []).map(failure => failure.message),
     conflicts: store?.conflicts ?? [], guestModules, addModules, updateModule, deleteModule, setSharing,
-    publishModule, syncModule, syncAll, syncNow, resolveConflict, importGuestModules,
+    publishModule, syncModule, syncAll, syncNow, importGuestModules,
     subscribeByCode: async (code: string) => { cloudOnly(); const { module } = await modulesApi.subscribe(code); await commit(current => ({ ...current, modules: [module, ...current.modules] })); return module; },
     reload: syncNow,
   };
