@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { validateModuleContent } from "@/lib/module-validation"
 
 interface Props {
   open: boolean
@@ -27,13 +28,8 @@ function validateYAML(content: string): string | null {
   let parsed: unknown
   try { parsed = load(content, { schema: JSON_SCHEMA }) } catch (e) { return `YAML parse error: ${e instanceof Error ? e.message : String(e)}` }
   if (!parsed || typeof parsed !== 'object') return 'Invalid YAML: expected an object with title and questions.'
-  const obj = parsed as Record<string, unknown>
-  if (typeof obj.title !== 'string' || !obj.title.trim()) return 'Module must have a "title" field.'
-  if (!Array.isArray(obj.questions) || obj.questions.length === 0) return 'Module must have a non-empty "questions" array.'
-  for (let i = 0; i < obj.questions.length; i++) {
-    const question = obj.questions[i] as Record<string, unknown>
-    if (!question || typeof question.question !== 'string' || !question.question.trim()) return `Question #${i + 1} is missing the "question" field.`
-  }
+  try { validateModuleContent(parsed as Record<string, unknown>) }
+  catch (reason) { return reason instanceof Error ? reason.message : 'Invalid module.' }
   return null
 }
 
