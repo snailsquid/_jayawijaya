@@ -114,6 +114,33 @@ async function listModules(env: Env, userId: string, autoSync = true) {
   return rows.results.map(fromRow);
 }
 
+async function publishAffectedCategories(env: Env, ownerId: string, moduleId: string, moduleVersion: number, now: string) {
+  const categories = await env.DB.prepare(`SELECT c.id,c.latest_version,v.name
+    FROM live_categories c JOIN live_category_versions v
+      ON v.category_id=c.id AND v.version=c.latest_version
+    WHERE c.owner_id=? AND c.visibility='live' AND c.deleted_at IS NULL
+      AND EXISTS (SELECT 1 FROM live_category_members cm
+        WHERE cm.category_id=c.id AND cm.category_version=c.latest_version AND cm.module_id=?)`)
+    .bind(ownerId, moduleId).all<{ id: string; latest_version: number; name: string }>();
+  for (const category of categories.results) {
+    const current = Number(category.latest_version), next = current + 1;
+    const members = await env.DB.prepare(`SELECT position,module_id,module_version FROM live_category_members
+      WHERE category_id=? AND category_version=? ORDER BY position`)
+      .bind(category.id, current).all<{ position: number; module_id: string; module_version: number }>();
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO live_category_versions(category_id,version,name,created_at) VALUES(?,?,?,?)')
+        .bind(category.id, next, category.name, now),
+      ...members.results.map(member => env.DB.prepare(`INSERT INTO live_category_members
+        (category_id,category_version,position,module_id,module_version) VALUES(?,?,?,?,?)`)
+        .bind(category.id, next, member.position, member.module_id, member.module_id === moduleId ? moduleVersion : member.module_version)),
+      env.DB.prepare(`UPDATE live_categories SET latest_version=?,updated_at=?
+        WHERE id=? AND owner_id=? AND latest_version=?`).bind(next, now, category.id, ownerId, current),
+      env.DB.prepare(`UPDATE live_category_library SET current_version=?,updated_at=?
+        WHERE user_id=? AND category_id=? AND current_version=?`).bind(next, now, ownerId, category.id, current),
+    ]);
+  }
+}
+
 async function publish(env: Env, user: AuthUser, moduleId: string, body: ModuleBody) {
   const source = await env.DB.prepare(`SELECT m.*, v.title current_title, v.description current_description,
     v.content_hash current_hash, v.questions_json current_questions, v.byte_size current_bytes
@@ -153,6 +180,7 @@ async function publish(env: Env, user: AuthUser, moduleId: string, body: ModuleB
     assertWithinQuota(user.tier, await usage(env, user.id), parsed.byteSize, Number(source.current_bytes));
     throw new ModuleValidationError('Module was updated concurrently. Reload and try again.', 409, 'VERSION_CONFLICT');
   }
+  await publishAffectedCategories(env, user.id, moduleId, next, now);
   return fromRow(updated);
 }
 

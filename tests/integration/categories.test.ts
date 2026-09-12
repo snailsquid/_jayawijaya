@@ -67,4 +67,17 @@ describe('live category API',()=>{
     const frozen=await api('/api/categories',bob); expect(await frozen.json()).toMatchObject({categories:[{frozen:true,currentVersion:2}]});
     const noSync=await api(`/api/categories/${category.id}/sync`,bob,{method:'POST'}); expect(await noSync.json()).toMatchObject({updated:false,category:{frozen:true}});
   });
+
+  it('publishes module edits to every affected live category automatically',async()=>{
+    const alice=await signUp('update-owner'),bob=await signUp('update-reader'); await premium('update-owner');
+    const module=await liveModule(alice,'Original');
+    const created=await api('/api/categories',alice,{method:'POST',body:JSON.stringify({name:'Automatic',moduleIds:[module.id],visibility:'live'})});
+    const category=(await created.json() as {category:{id:string;shareToken:string}}).category;
+    await api(`/api/categories/shared/${category.shareToken}/subscribe`,bob,{method:'POST'});
+
+    const updated=await api(`/api/modules/${module.id}`,alice,{method:'PATCH',body:JSON.stringify({title:'Revised',hash:'hash-revised'})});
+    expect(updated.status).toBe(200);
+    expect(await api(`/api/categories/${category.id}/sync`,bob,{method:'POST'}).then(response=>response.json()))
+      .toMatchObject({updated:true,category:{currentVersion:2,members:[{moduleId:module.id,moduleVersion:2,title:'Revised'}]}});
+  });
 });
