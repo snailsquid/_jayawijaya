@@ -353,6 +353,26 @@ describe('account-owned module API', () => {
     expect(nextToken).not.toBe(live.shareToken);
   });
 
+  it('reports temporary live-module access expiry and revokes expired access', async () => {
+    const cookie = await signUp('temporary-live-access');
+    const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'temporary-live-access@example.test'").first<{ id: string }>();
+    const now = new Date(), expiresAt = new Date(now.getTime() + 6 * 86_400_000).toISOString();
+    await env.DB.prepare('DELETE FROM access_grants').run();
+    await env.DB.prepare(`INSERT INTO access_grants
+      (id, subject_type, subject_id, tier, starts_at, expires_at, reason, created_at)
+      VALUES ('temporary-live-access', 'user', ?, 'pro', ?, ?, 'test', ?)`)
+      .bind(user!.id, now.toISOString(), expiresAt, now.toISOString()).run();
+
+    const active = await api('/api/modules', cookie);
+    expect((await active.json() as { limits: { liveModules: boolean; liveModulesExpiresAt: string } }).limits)
+      .toMatchObject({ liveModules: true, liveModulesExpiresAt: expiresAt });
+
+    await env.DB.prepare("UPDATE access_grants SET starts_at = '1999-01-01T00:00:00.000Z', expires_at = '2000-01-01T00:00:00.000Z' WHERE id = 'temporary-live-access'").run();
+    const expired = await api('/api/modules', cookie);
+    expect((await expired.json() as { limits: { liveModules: boolean; liveModulesExpiresAt: null } }).limits)
+      .toMatchObject({ liveModules: false, liveModulesExpiresAt: null });
+  });
+
   it('keeps a frozen subscriber copy after the owner deletes the source', async () => {
     const alice = await signUp('delete-alice');
     const bob = await signUp('delete-bob');

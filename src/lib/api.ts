@@ -27,7 +27,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const modulesApi = {
-  list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number }; limits: { modules: number; storageBytes: number; liveModules: boolean } }>('/api/modules'),
+  list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number }; limits: { modules: number; storageBytes: number; liveModules: boolean; liveModulesExpiresAt?: string | null } }>('/api/modules'),
   create: (module: Module, clientMutationId?: string) => request<{ module: Module }>('/api/modules', {
     method: 'POST', body: JSON.stringify({ ...module, clientMutationId }),
   }),

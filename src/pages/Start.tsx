@@ -97,6 +97,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
     modules: limits.modules,
     storageMb: limits.storageBytes / 1024 / 1024,
   };
+  const liveModulesExpiresAt = 'liveModulesExpiresAt' in limits ? limits.liveModulesExpiresAt : null;
 
   const selectedGuestImportIds =
     guestImportIds ?? guestModules.map((module) => module.id);
@@ -318,6 +319,13 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
 
   const handleStart = () => {
     if (config.selectedModuleIds.length === 0) return;
+
+    const expiry = liveModulesExpiresAt ? Date.parse(liveModulesExpiresAt) : null;
+    const liveAccess = Boolean(limits.liveModules) && (expiry === null || expiry > Date.now());
+    if (!liveAccess && modules.some(module => config.selectedModuleIds.includes(module.id) && module.visibility === "live")) {
+      toast.error("A paid plan is required to start live modules.");
+      return;
+    }
 
     const selectedModules = structuredClone(
       modules.filter((m) => config.selectedModuleIds.includes(m.id)),
@@ -602,6 +610,8 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
               expandedModules={expandedModules}
               collapsedCategories={collapsedCategories}
               cloudEnabled={online && user.kind === "account"}
+              liveAccess={Boolean(limits.liveModules) && (!liveModulesExpiresAt || Date.parse(liveModulesExpiresAt) > Date.now())}
+              liveAccessExpiresAt={liveModulesExpiresAt}
               onToggleModule={handleToggleModule}
               onToggleExpand={handleToggleExpand}
               onDeleteModule={handleDeleteModule}

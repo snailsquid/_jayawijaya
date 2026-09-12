@@ -1,7 +1,7 @@
 import type { Auth } from './auth';
 import type { Env } from './env';
 import { assertWithinQuota, limitsFor, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
-import { effectiveTier } from './entitlements';
+import { effectiveTier, liveModuleAccess } from './entitlements';
 
 interface AuthUser { id: string; role?: string; tier?: string }
 type ModuleBody = ModuleInput & { visibility?: unknown; enabled?: unknown; expectedRevision?: unknown; clientMutationId?: unknown };
@@ -187,6 +187,7 @@ async function publish(env: Env, user: AuthUser, moduleId: string, body: ModuleB
 export async function handleModules(request: Request, env: Env, auth: Auth): Promise<Response> {
   const user = await currentUser(auth, request);
   if (!user) return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required.' } }, 401);
+  const access = await liveModuleAccess(env.DB, user.id, user.tier);
   user.tier = await effectiveTier(env.DB, user.id, user.tier);
   const url = new URL(request.url);
   const path = url.pathname.split('/').filter(Boolean).slice(2).map(decodeURIComponent);
@@ -196,9 +197,12 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       await enforceMutationRateLimit(env, user.id);
     }
 
-    if (request.method === 'GET' && path.length === 0) return json({
-      modules: await listModules(env, user.id), usage: await usage(env, user.id), limits: limitsFor(user.tier),
-    });
+    if (request.method === 'GET' && path.length === 0) {
+      return json({
+        modules: await listModules(env, user.id), usage: await usage(env, user.id),
+        limits: { ...limitsFor(user.tier), liveModules: access.enabled, liveModulesExpiresAt: access.expiresAt },
+      });
+    }
 
     if (request.method === 'POST' && path.length === 0) {
       const body = await readBody(request); const parsed = validateModuleInput(body);

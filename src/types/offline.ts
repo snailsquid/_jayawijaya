@@ -33,7 +33,7 @@ export interface OfflineWorkspace {
   id: string;
   modules: Module[];
   usage: { moduleCount: number; usedBytes: number };
-  limits: { modules: number; storageBytes: number; liveModules?: boolean };
+  limits: { modules: number; storageBytes: number; liveModules?: boolean; liveModulesExpiresAt?: string | null };
   queue: ModuleMutation[];
   /** @deprecated Migrated automatically to the deterministic queue. */
   conflicts: ModuleConflict[];
