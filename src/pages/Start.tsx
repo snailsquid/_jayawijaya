@@ -631,7 +631,6 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
                   liveCategory={liveCategories.categories.find((item) => item.localCategoryId === category.id)}
                   disabled={!online}
                   onCreate={liveCategories.create}
-                  onPublish={liveCategories.publish}
                   onSetSharing={liveCategories.setSharing}
                 />
               ) : null}
