@@ -632,6 +632,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
                   disabled={!online}
                   onCreate={liveCategories.create}
                   onSetSharing={liveCategories.setSharing}
+                  onActivated={syncNow}
                 />
               ) : null}
             />

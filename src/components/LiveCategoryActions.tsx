@@ -11,15 +11,18 @@ interface Props {
   disabled?: boolean;
   onCreate: (name: string, moduleIds: string[], localCategoryId?: string) => Promise<LiveCategory>;
   onSetSharing: (id: string, enabled: boolean) => Promise<LiveCategory>;
+  onActivated?: () => void | Promise<void>;
 }
 
-export function LiveCategoryActions({ category, liveCategory, disabled, onCreate, onSetSharing }: Props) {
+export function LiveCategoryActions({ category, liveCategory, disabled, onCreate, onSetSharing, onActivated }: Props) {
   const [busy,setBusy]=useState(false), [sharing,setSharing]=useState<LiveCategory>(), [error,setError]=useState('');
   const run=async()=>{ setBusy(true); try {
     setError('');
     if (liveCategory?.visibility === 'live') { setSharing(liveCategory); return; }
     let live=liveCategory ?? await onCreate(category.name,category.moduleIds,category.id);
-    if(live.visibility!=='live') live=await onSetSharing(live.id,true); setSharing(live);
+    if(live.visibility!=='live') live=await onSetSharing(live.id,true);
+    await onActivated?.();
+    setSharing(live);
   } catch(reason) { setError(reason instanceof Error ? reason.message : 'Unable to share this category.'); } finally { setBusy(false); } };
   return <><Button size="sm" variant="outline" disabled={disabled||busy||category.moduleIds.length===0} onClick={()=>void run()}>{liveCategory?.visibility === 'live'?<Settings/>:<Radio/>}{busy?'Sharing…':liveCategory?.visibility === 'live'?'Manage sharing':'Share live'}</Button>
     {error&&<Alert variant="destructive" className="basis-full"><AlertDescription>{error}</AlertDescription></Alert>}
