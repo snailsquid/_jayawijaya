@@ -23,4 +23,16 @@ describe('ShareModuleModal', () => {
 
     await waitFor(() => expect(onDisable).toHaveBeenCalledOnce())
   })
+
+  it('hides management from a subscriber while keeping share details available', () => {
+    render(<ShareModuleModal
+      module={{ id: 'module-1', title: 'Liver', questions: [], isOwner: false, subscribed: true, visibility: 'live', shareCode: 'ABCD' }}
+      url="https://example.test/shared/ABCD"
+      onClose={vi.fn()}
+    />)
+
+    expect(screen.getByText('https://example.test/shared/ABCD')).toBeInTheDocument()
+    expect(screen.getByText('ABCD')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Disable live module' })).not.toBeInTheDocument()
+  })
 })

@@ -330,9 +330,12 @@ describe('account-owned module API', () => {
     const published = await api(`/api/modules/${original.id}/publish`, alice, { method: 'POST', body: JSON.stringify(revised) });
     expect((await published.json() as { module: { currentVersion: number } }).module.currentVersion).toBe(2);
     const synced = await api('/api/modules', bob);
-    const subscriber = (await synced.json() as { modules: Array<{ currentVersion: number; questions: Array<{ question: string }> }> }).modules[0];
+    const subscriber = (await synced.json() as { modules: Array<{ currentVersion: number; questions: Array<{ question: string }>; shareCode?: string; shareToken?: string }> }).modules[0];
     expect(subscriber.currentVersion).toBe(2);
     expect(subscriber.questions[0].question).toBe('Updated question?');
+    expect(subscriber.shareCode).toBe(original.shareCode);
+    expect(subscriber.shareToken).toBeUndefined();
+    expect((await api(`/api/modules/${original.id}/share`, bob, { method: 'POST', body: JSON.stringify({ enabled: false }) })).status).toBe(404);
   });
 
   it('freezes subscribers when sharing stops and rotates the token when re-enabled', async () => {

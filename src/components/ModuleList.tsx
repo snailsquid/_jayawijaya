@@ -35,7 +35,7 @@ export function ModuleList(props: Props) {
         const daysLeft = module.visibility === 'live' && props.liveAccessExpiresAt
           ? Math.max(0, Math.ceil((Date.parse(props.liveAccessExpiresAt) - Date.now()) / 86_400_000))
           : null
-        const sharingUnavailable = !props.cloudEnabled || (!module.isOwner && !module.shareToken)
+        const sharingUnavailable = !props.cloudEnabled || (!module.isOwner && !module.shareToken && !module.shareCode)
         return <div key={module.id} className={cn("flex min-w-0 flex-wrap items-start gap-3 rounded-md border p-3", selected && "border-primary bg-accent")}>
           <Checkbox id={`module-${module.id}`} checked={selected} disabled={liveLocked} onCheckedChange={() => props.onToggleModule(module.id)} className="mt-1" />
           <div className="min-w-0 basis-48 flex-1 overflow-hidden">

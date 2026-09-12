@@ -684,7 +684,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
           module={sharingModule}
           url={shareUrl(sharingModule)}
           onClose={() => setSharingModule(null)}
-          onDisable={async () => {
+          onDisable={sharingModule.isOwner ? async () => {
             try {
               await setSharing(sharingModule.id, false);
               setSharingModule(null);
@@ -695,7 +695,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
               );
               throw reason;
             }
-          }}
+          } : undefined}
         />
       )}
       <Card>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 
-interface Props { module: Module; url: string; onClose: () => void; onDisable: () => Promise<void> }
+interface Props { module: Module; url: string; onClose: () => void; onDisable?: () => Promise<void> }
 const copy = (value: string, message: string) => navigator.clipboard.writeText(value).then(() => toast.success(message)).catch(() => toast.error('Could not copy to the clipboard.'))
 
 export function ShareModuleModal({ module, url, onClose, onDisable }: Props) {
@@ -22,7 +22,7 @@ export function ShareModuleModal({ module, url, onClose, onDisable }: Props) {
       <DialogFooter className="sm:justify-start">
         <Button variant="outline" onClick={() => void copy(url, 'Share link copied.')}><Link /> Copy URL</Button>
         <Button variant="outline" disabled={!code} onClick={() => { if (code) void copy(code, 'Module code copied.') }}><Hash /> Copy code</Button>
-        <Button variant="destructive" disabled={disabling} onClick={() => { setDisabling(true); void onDisable().catch(() => undefined).finally(() => setDisabling(false)) }}><RadioTower /> {disabling ? 'Disabling…' : 'Disable live module'}</Button>
+        {onDisable && <Button variant="destructive" disabled={disabling} onClick={() => { setDisabling(true); void onDisable().catch(() => undefined).finally(() => setDisabling(false)) }}><RadioTower /> {disabling ? 'Disabling…' : 'Disable live module'}</Button>}
       </DialogFooter>
     </DialogContent>
   </Dialog>
