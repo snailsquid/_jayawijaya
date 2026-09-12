@@ -1,6 +1,7 @@
 import type { Auth } from './auth';
 import type { Env } from './env';
 import { assertWithinQuota, limitsFor, MODULE_LIMITS, ModuleValidationError, validateModuleInput, type ModuleInput } from './module-policy';
+import { effectiveTier, liveModuleAccess } from './entitlements';
 
 interface AuthUser { id: string; role?: string; tier?: string }
 type ModuleBody = ModuleInput & { visibility?: unknown; enabled?: unknown; expectedRevision?: unknown; clientMutationId?: unknown };
@@ -17,15 +18,6 @@ const json = (body: unknown, status = 200) => Response.json(body, { status });
 async function currentUser(auth: Auth, request: Request): Promise<AuthUser | null> {
   const session = await auth.api.getSession({ headers: request.headers });
   return session?.user as AuthUser | null;
-}
-
-async function effectiveTier(env: Env, userId: string) {
-  const now = new Date().toISOString();
-  const active = await env.DB.prepare(`SELECT 1 ok FROM entitlements
-    WHERE user_id = ? AND active = 1 AND starts_at <= ?
-    AND (expires_at IS NULL OR expires_at > ?) LIMIT 1`)
-    .bind(userId, now, now).first();
-  return active ? 'pro' : 'free';
 }
 
 async function enforceMutationRateLimit(env: Env, userId: string) {
@@ -97,7 +89,8 @@ async function createShareCode(env: Env): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const bytes = crypto.getRandomValues(new Uint8Array(4));
     const code = Array.from(bytes, byte => SHARE_CODE_ALPHABET[byte % SHARE_CODE_ALPHABET.length]).join('');
-    const existing = await env.DB.prepare('SELECT 1 ok FROM modules WHERE share_code = ?').bind(code).first();
+    const existing = await env.DB.prepare(`SELECT 1 ok FROM modules WHERE share_code = ?
+      UNION ALL SELECT 1 ok FROM live_categories WHERE share_code = ? LIMIT 1`).bind(code, code).first();
     if (!existing) return code;
   }
   throw new ModuleValidationError('Could not allocate a share code. Try again.', 503, 'SHARE_CODE_UNAVAILABLE');
@@ -119,6 +112,33 @@ async function listModules(env: Env, userId: string, autoSync = true) {
       AND latest_version > module_library.current_version)`).bind(new Date().toISOString(), userId).run();
   const rows = await env.DB.prepare(`${librarySelect} WHERE l.user_id = ? ORDER BY l.created_at DESC`).bind(userId, userId).all<Record<string, unknown>>();
   return rows.results.map(fromRow);
+}
+
+async function publishAffectedCategories(env: Env, ownerId: string, moduleId: string, moduleVersion: number, now: string) {
+  const categories = await env.DB.prepare(`SELECT c.id,c.latest_version,v.name
+    FROM live_categories c JOIN live_category_versions v
+      ON v.category_id=c.id AND v.version=c.latest_version
+    WHERE c.owner_id=? AND c.visibility='live' AND c.deleted_at IS NULL
+      AND EXISTS (SELECT 1 FROM live_category_members cm
+        WHERE cm.category_id=c.id AND cm.category_version=c.latest_version AND cm.module_id=?)`)
+    .bind(ownerId, moduleId).all<{ id: string; latest_version: number; name: string }>();
+  for (const category of categories.results) {
+    const current = Number(category.latest_version), next = current + 1;
+    const members = await env.DB.prepare(`SELECT position,module_id,module_version FROM live_category_members
+      WHERE category_id=? AND category_version=? ORDER BY position`)
+      .bind(category.id, current).all<{ position: number; module_id: string; module_version: number }>();
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO live_category_versions(category_id,version,name,created_at) VALUES(?,?,?,?)')
+        .bind(category.id, next, category.name, now),
+      ...members.results.map(member => env.DB.prepare(`INSERT INTO live_category_members
+        (category_id,category_version,position,module_id,module_version) VALUES(?,?,?,?,?)`)
+        .bind(category.id, next, member.position, member.module_id, member.module_id === moduleId ? moduleVersion : member.module_version)),
+      env.DB.prepare(`UPDATE live_categories SET latest_version=?,updated_at=?
+        WHERE id=? AND owner_id=? AND latest_version=?`).bind(next, now, category.id, ownerId, current),
+      env.DB.prepare(`UPDATE live_category_library SET current_version=?,updated_at=?
+        WHERE user_id=? AND category_id=? AND current_version=?`).bind(next, now, ownerId, category.id, current),
+    ]);
+  }
 }
 
 async function publish(env: Env, user: AuthUser, moduleId: string, body: ModuleBody) {
@@ -160,13 +180,15 @@ async function publish(env: Env, user: AuthUser, moduleId: string, body: ModuleB
     assertWithinQuota(user.tier, await usage(env, user.id), parsed.byteSize, Number(source.current_bytes));
     throw new ModuleValidationError('Module was updated concurrently. Reload and try again.', 409, 'VERSION_CONFLICT');
   }
+  await publishAffectedCategories(env, user.id, moduleId, next, now);
   return fromRow(updated);
 }
 
 export async function handleModules(request: Request, env: Env, auth: Auth): Promise<Response> {
   const user = await currentUser(auth, request);
   if (!user) return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required.' } }, 401);
-  user.tier = await effectiveTier(env, user.id);
+  const access = await liveModuleAccess(env.DB, user.id, user.tier);
+  user.tier = await effectiveTier(env.DB, user.id, user.tier);
   const url = new URL(request.url);
   const path = url.pathname.split('/').filter(Boolean).slice(2).map(decodeURIComponent);
   try {
@@ -175,9 +197,12 @@ export async function handleModules(request: Request, env: Env, auth: Auth): Pro
       await enforceMutationRateLimit(env, user.id);
     }
 
-    if (request.method === 'GET' && path.length === 0) return json({
-      modules: await listModules(env, user.id), usage: await usage(env, user.id), limits: limitsFor(user.tier),
-    });
+    if (request.method === 'GET' && path.length === 0) {
+      return json({
+        modules: await listModules(env, user.id), usage: await usage(env, user.id),
+        limits: { ...limitsFor(user.tier), liveModules: access.enabled, liveModulesExpiresAt: access.expiresAt },
+      });
+    }
 
     if (request.method === 'POST' && path.length === 0) {
       const body = await readBody(request); const parsed = validateModuleInput(body);

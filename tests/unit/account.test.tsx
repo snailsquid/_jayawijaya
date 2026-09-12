@@ -19,7 +19,22 @@ const activePayment: Payment = {
 
 describe('Account', () => {
   it('shows Pro access when an active payment entitlement exists for a free-tier user', async () => {
-    api.list.mockResolvedValue({ payments: [activePayment] });
+    api.list.mockResolvedValue({ payments: [activePayment], tier: 'pro' });
+
+    render(
+      <MemoryRouter>
+        <ThemeProvider defaultTheme="light">
+          <Account user={{ id: 'user-1', name: 'Test User', email: 'test@example.com', role: 'user', tier: 'free' }} />
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Pro')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /manage plan/i })).toBeInTheDocument();
+  });
+
+  it('shows Pro access when the server applies a temporary access grant', async () => {
+    api.list.mockResolvedValue({ payments: [], tier: 'pro' });
 
     render(
       <MemoryRouter>

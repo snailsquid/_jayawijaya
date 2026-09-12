@@ -58,12 +58,11 @@ questions:
     answers: [RUQ, LUQ]
     correct_answer: 1`;
   await uploadYaml(page, 'e2e-liver.yaml', liverYaml);
-  await page.getByRole('button', { name: /^finish$/i }).click();
+  await page.getByRole('button', { name: /upload 1 module/i }).click();
   await expect(page.getByText('E2E Liver Module')).toBeVisible();
   await page.reload();
   await expect(page.getByText('E2E Liver Module')).toBeVisible();
   await uploadYaml(page, 'e2e-liver.yaml', liverYaml);
-  await page.getByRole('button', { name: /^finish$/i }).click();
   await expect(page.getByText(/already uploaded/i)).toBeVisible();
   await page.getByRole('button', { name: /cancel/i }).click();
   await page.getByRole('checkbox', { name: 'E2E Liver Module' }).click();
@@ -94,7 +93,7 @@ questions:
   - question: Continue after expiry?
     answers: [Yes, No]
     correct_answer: 1`);
-  await page.getByRole('button', { name: /^finish$/i }).click();
+  await page.getByRole('button', { name: /upload 1 module/i }).click();
   await page.getByRole('checkbox', { name: 'Session Module' }).click();
   await page.getByRole('button', { name: /^start quiz$/i }).click();
   await expect(page.getByText('Continue after expiry?')).toBeVisible();

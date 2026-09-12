@@ -42,6 +42,30 @@ export interface Category {
   isExpanded?: boolean;
 }
 
+export interface LiveCategoryMember {
+  moduleId: string;
+  moduleVersion: number;
+  title: string;
+  questionCount: number;
+}
+
+export interface LiveCategory {
+  id: string;
+  name: string;
+  moduleIds: string[];
+  members: LiveCategoryMember[];
+  ownerId: string;
+  isOwner: boolean;
+  visibility: 'private' | 'live';
+  shareToken?: string;
+  shareCode?: string;
+  subscribed: boolean;
+  frozen: boolean;
+  currentVersion: number;
+  latestVersion: number;
+  localCategoryId: string;
+}
+
 export interface QuizState {
   mode: QuizMode;
   randomize: boolean;

@@ -1,4 +1,4 @@
-import type { Module } from '../types/quiz';
+import type { LiveCategory, Module } from '../types/quiz';
 import type { ActiveEntitlement, MidtransClientConfig, Payment, PaymentProduct } from '../types/payment';
 
 export class ApiError extends Error {
@@ -27,7 +27,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const modulesApi = {
-  list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number }; limits: { modules: number; storageBytes: number; liveModules: boolean } }>('/api/modules'),
+  list: () => request<{ modules: Module[]; usage: { moduleCount: number; usedBytes: number }; limits: { modules: number; storageBytes: number; liveModules: boolean; liveModulesExpiresAt?: string | null } }>('/api/modules'),
   create: (module: Module, clientMutationId?: string) => request<{ module: Module }>('/api/modules', {
     method: 'POST', body: JSON.stringify({ ...module, clientMutationId }),
   }),
@@ -41,8 +41,21 @@ export const modulesApi = {
   syncAll: () => request<{ modules: Module[]; updated: number }>('/api/modules/sync', { method: 'POST' }),
 };
 
+export const categoriesApi = {
+  list: () => request<{ categories: LiveCategory[] }>('/api/categories'),
+  create: (category: { name: string; moduleIds: string[]; localCategoryId?: string; visibility?: 'private' | 'live' }, clientMutationId?: string) =>
+    request<{ category: LiveCategory }>('/api/categories', { method: 'POST', body: JSON.stringify({ ...category, clientMutationId }) }),
+  update: (id: string, category: { name: string; moduleIds: string[] }, expectedVersion?: number) =>
+    request<{ category: LiveCategory }>(`/api/categories/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...category, expectedVersion }) }),
+  remove: (id: string) => request<void>(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  setSharing: (id: string, enabled: boolean) => request<{ category: LiveCategory }>(`/api/categories/${encodeURIComponent(id)}/share`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+  resolveShare: (token: string) => request<{ category: LiveCategory }>(`/api/categories/shared/${encodeURIComponent(token)}`),
+  subscribe: (token: string) => request<{ category: LiveCategory }>(`/api/categories/shared/${encodeURIComponent(token)}/subscribe`, { method: 'POST' }),
+  sync: (id: string) => request<{ category: LiveCategory; updated: boolean }>(`/api/categories/${encodeURIComponent(id)}/sync`, { method: 'POST' }),
+};
+
 export const paymentsApi = {
-  list: () => request<{ payments: Payment[]; products: PaymentProduct[]; entitlement: ActiveEntitlement | null; config: MidtransClientConfig }>('/api/payments'),
+  list: () => request<{ payments: Payment[]; products: PaymentProduct[]; entitlement: ActiveEntitlement | null; tier: 'free' | 'pro'; config: MidtransClientConfig }>('/api/payments'),
   create: (productCode: string, amount?: number) => request<{ payment: Payment; config: MidtransClientConfig }>('/api/payments', {
     method: 'POST', body: JSON.stringify({ productCode, ...(amount === undefined ? {} : { amount }) }),
   }),

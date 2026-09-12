@@ -1,12 +1,13 @@
 import { ChevronDown, ChevronRight, Pencil, RefreshCw, Share2, Trash2 } from "lucide-react"
-import type { Module } from "@/types/quiz"
+import type { Category, Module } from "@/types/quiz"
+import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
-interface Props { modules: Module[]; selectedIds: string[]; expandedModules: Set<string>; collapsedCategories: Set<string>; cloudEnabled?: boolean; onToggleModule: (id: string) => void; onToggleExpand: (id: string) => void; onDeleteModule: (id: string) => void; onToggleCollapse: (key: string) => void; onToggleSelectAll: (ids: string[], select: boolean) => void; onShare: (module: Module) => void; onEdit: (module: Module) => void; onSync: (id: string) => void }
+interface Props { modules: Module[]; selectedIds: string[]; expandedModules: Set<string>; collapsedCategories: Set<string>; cloudEnabled?: boolean; liveAccess?: boolean; liveAccessExpiresAt?: string | null; onToggleModule: (id: string) => void; onToggleExpand: (id: string) => void; onDeleteModule: (id: string) => void; onToggleCollapse: (key: string) => void; onToggleSelectAll: (ids: string[], select: boolean) => void; onShare: (module: Module) => void; onEdit: (module: Module) => void; onSync: (id: string) => void; renderCategoryActions?: (category: Category) => ReactNode }
 
 export function ModuleList(props: Props) {
   const categories = Array.from(new Set(props.modules.map(module => module.categoryId).filter(Boolean))).sort() as string[]
@@ -22,17 +23,26 @@ export function ModuleList(props: Props) {
     return <Card key={group.key} className="gap-2 py-3">
       <CardHeader className="flex flex-row items-center justify-between gap-2 px-3">
         <Button variant="ghost" className="min-w-0 justify-start px-1 font-semibold" onClick={() => props.onToggleCollapse(group.key)} aria-expanded={!collapsed}>{collapsed ? <ChevronRight /> : <ChevronDown />}<span className="truncate">{group.title}</span></Button>
-        {!collapsed && <Button size="sm" variant="outline" onClick={() => props.onToggleSelectAll(ids, !all)}>{all ? 'Deselect all' : 'Select all'}</Button>}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {group.key !== '__uncategorized__' && props.renderCategoryActions?.({ id: group.key, name: group.title, moduleIds: ids })}
+          {!collapsed && <Button size="sm" variant="outline" onClick={() => props.onToggleSelectAll(ids, !all)}>{all ? 'Deselect all' : 'Select all'}</Button>}
+        </div>
       </CardHeader>
       {!collapsed && <CardContent className="space-y-2 px-3">{group.modules.map(module => {
         const selected = props.selectedIds.includes(module.id)
         const expanded = props.expandedModules.has(module.id)
-        const sharingUnavailable = !props.cloudEnabled || (!module.isOwner && !module.shareToken)
+        const liveLocked = module.visibility === 'live' && !props.liveAccess
+        const daysLeft = module.visibility === 'live' && props.liveAccessExpiresAt
+          ? Math.max(0, Math.ceil((Date.parse(props.liveAccessExpiresAt) - Date.now()) / 86_400_000))
+          : null
+        const sharingUnavailable = !props.cloudEnabled || (!module.isOwner && !module.shareToken && !module.shareCode)
         return <div key={module.id} className={cn("flex min-w-0 flex-wrap items-start gap-3 rounded-md border p-3", selected && "border-primary bg-accent")}>
-          <Checkbox id={`module-${module.id}`} checked={selected} onCheckedChange={() => props.onToggleModule(module.id)} className="mt-1" />
+          <Checkbox id={`module-${module.id}`} checked={selected} disabled={liveLocked} onCheckedChange={() => props.onToggleModule(module.id)} className="mt-1" />
           <div className="min-w-0 basis-48 flex-1 overflow-hidden">
             <Label htmlFor={`module-${module.id}`} className="block cursor-pointer truncate font-medium">{module.title}</Label>
             <p className="truncate text-xs text-muted-foreground">v{module.currentVersion ?? 1}{module.subscribed ? module.frozen ? ' · frozen' : ' · live subscription' : module.visibility === 'live' ? ' · shared live' : ' · private'}</p>
+            {liveLocked && <p className="text-xs font-medium text-destructive">Paid plan required to start this live module.</p>}
+            {daysLeft !== null && daysLeft <= 7 && <p className="text-xs font-medium text-amber-600">Live access ends in {daysLeft} day{daysLeft === 1 ? '' : 's'}.</p>}
             {module.description && <Button type="button" variant="link" className={cn("block h-auto max-w-full justify-start overflow-hidden p-0 text-left text-sm font-normal text-muted-foreground", !expanded && "truncate")} onClick={() => props.onToggleExpand(module.id)} aria-expanded={expanded}>{module.description}</Button>}
           </div>
           <div className="ml-auto flex shrink-0 gap-1">

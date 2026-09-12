@@ -17,11 +17,15 @@ import type { WorkspaceIdentity } from '@/types/offline';
 export function Account({ user }: { user: WorkspaceIdentity }) {
   const navigate = useNavigate();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [effectiveTier, setEffectiveTier] = useState(user.tier);
   const initials = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
-  const accountIsPro = user.tier === 'pro' || getSubscriptionSummary(payments).active;
+  const accountIsPro = effectiveTier === 'pro' || getSubscriptionSummary(payments).active;
 
   useEffect(() => {
-    void paymentsApi.list().then(result => setPayments(result.payments)).catch(() => undefined);
+    void paymentsApi.list().then(result => {
+      setPayments(result.payments);
+      setEffectiveTier(result.tier);
+    }).catch(() => undefined);
   }, []);
 
   const signOut = async () => {

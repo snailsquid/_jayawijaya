@@ -85,6 +85,46 @@ describe('account-owned module API', () => {
     expect((await api('/api/modules')).status).toBe(401);
   });
 
+  it('applies active global access grants and ignores expired grants', async () => {
+    const alice = await signUp('campaign-alice');
+    const expiredAt = new Date(Date.now() - 60_000).toISOString();
+    const startedAt = new Date(Date.now() - 120_000).toISOString();
+    await env.DB.prepare(`INSERT INTO access_grants
+      (id, subject_type, tier, starts_at, expires_at, reason, created_at)
+      VALUES ('expired-campaign', 'global', 'pro', ?, ?, 'Expired test', ?)`)
+      .bind(startedAt, expiredAt, startedAt).run();
+
+    const freeResponse = await api('/api/modules', alice);
+    expect((await freeResponse.json() as { limits: typeof MODULE_LIMITS.free }).limits.modules).toBe(MODULE_LIMITS.free.modules);
+
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+    await env.DB.prepare(`INSERT INTO access_grants
+      (id, subject_type, tier, starts_at, expires_at, reason, created_at)
+      VALUES ('active-campaign', 'global', 'pro', ?, ?, 'Active test', ?)`)
+      .bind(now, expiresAt, now).run();
+
+    const proResponse = await api('/api/modules', alice);
+    expect((await proResponse.json() as { limits: typeof MODULE_LIMITS.pro }).limits.modules).toBe(MODULE_LIMITS.pro.modules);
+  });
+
+  it('limits user access grants to the selected account', async () => {
+    const alice = await signUp('grant-alice');
+    const bob = await signUp('grant-bob');
+    const user = await env.DB.prepare('SELECT id FROM user WHERE email = ?')
+      .bind('grant-alice@example.test').first<{ id: string }>();
+    const now = new Date().toISOString();
+    await env.DB.prepare(`INSERT INTO access_grants
+      (id, subject_type, subject_id, tier, starts_at, expires_at, reason, created_at)
+      VALUES ('alice-grant', 'user', ?, 'pro', ?, ?, 'User test', ?)`)
+      .bind(user!.id, now, new Date(Date.now() + 60_000).toISOString(), now).run();
+
+    const aliceResponse = await api('/api/modules', alice);
+    const bobResponse = await api('/api/modules', bob);
+    expect((await aliceResponse.json() as { limits: typeof MODULE_LIMITS.pro }).limits.modules).toBe(MODULE_LIMITS.pro.modules);
+    expect((await bobResponse.json() as { limits: typeof MODULE_LIMITS.free }).limits.modules).toBe(MODULE_LIMITS.free.modules);
+  });
+
   it('creates, lists, updates, and deletes an owned module', async () => {
     const alice = await signUp('alice');
     const created = await api('/api/modules', alice, { method: 'POST', body: JSON.stringify(moduleBody) });
@@ -290,9 +330,12 @@ describe('account-owned module API', () => {
     const published = await api(`/api/modules/${original.id}/publish`, alice, { method: 'POST', body: JSON.stringify(revised) });
     expect((await published.json() as { module: { currentVersion: number } }).module.currentVersion).toBe(2);
     const synced = await api('/api/modules', bob);
-    const subscriber = (await synced.json() as { modules: Array<{ currentVersion: number; questions: Array<{ question: string }> }> }).modules[0];
+    const subscriber = (await synced.json() as { modules: Array<{ currentVersion: number; questions: Array<{ question: string }>; shareCode?: string; shareToken?: string }> }).modules[0];
     expect(subscriber.currentVersion).toBe(2);
     expect(subscriber.questions[0].question).toBe('Updated question?');
+    expect(subscriber.shareCode).toBe(original.shareCode);
+    expect(subscriber.shareToken).toBeUndefined();
+    expect((await api(`/api/modules/${original.id}/share`, bob, { method: 'POST', body: JSON.stringify({ enabled: false }) })).status).toBe(404);
   });
 
   it('freezes subscribers when sharing stops and rotates the token when re-enabled', async () => {
@@ -311,6 +354,26 @@ describe('account-owned module API', () => {
     const enabled = await api(`/api/modules/${live.id}/share`, alice, { method: 'POST', body: JSON.stringify({ enabled: true }) });
     const nextToken = (await enabled.json() as { module: { shareToken: string } }).module.shareToken;
     expect(nextToken).not.toBe(live.shareToken);
+  });
+
+  it('reports temporary live-module access expiry and revokes expired access', async () => {
+    const cookie = await signUp('temporary-live-access');
+    const user = await env.DB.prepare("SELECT id FROM user WHERE email = 'temporary-live-access@example.test'").first<{ id: string }>();
+    const now = new Date(), expiresAt = new Date(now.getTime() + 6 * 86_400_000).toISOString();
+    await env.DB.prepare('DELETE FROM access_grants').run();
+    await env.DB.prepare(`INSERT INTO access_grants
+      (id, subject_type, subject_id, tier, starts_at, expires_at, reason, created_at)
+      VALUES ('temporary-live-access', 'user', ?, 'pro', ?, ?, 'test', ?)`)
+      .bind(user!.id, now.toISOString(), expiresAt, now.toISOString()).run();
+
+    const active = await api('/api/modules', cookie);
+    expect((await active.json() as { limits: { liveModules: boolean; liveModulesExpiresAt: string } }).limits)
+      .toMatchObject({ liveModules: true, liveModulesExpiresAt: expiresAt });
+
+    await env.DB.prepare("UPDATE access_grants SET starts_at = '1999-01-01T00:00:00.000Z', expires_at = '2000-01-01T00:00:00.000Z' WHERE id = 'temporary-live-access'").run();
+    const expired = await api('/api/modules', cookie);
+    expect((await expired.json() as { limits: { liveModules: boolean; liveModulesExpiresAt: null } }).limits)
+      .toMatchObject({ liveModules: false, liveModulesExpiresAt: null });
   });
 
   it('keeps a frozen subscriber copy after the owner deletes the source', async () => {

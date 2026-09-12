@@ -9,6 +9,7 @@ import { Pricing } from './pages/Pricing';
 import { SharedModule } from './pages/SharedModule';
 import { Account } from './pages/Account';
 import { PwaStatus } from './components/PwaStatus';
+import { SharedCategory } from './pages/SharedCategory';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
         <Route path="/pricing" element={<AuthGate callbackURL="/pricing">{user => <Pricing key={user.id} />}</AuthGate>} />
         <Route path="/account" element={<AuthGate callbackURL="/account">{user => <Account key={user.id} user={user} />}</AuthGate>} />
         <Route path="/shared/:token" element={<AuthGate>{() => <SharedModule />}</AuthGate>} />
+        <Route path="/shared-category/:token" element={<AuthGate>{() => <SharedCategory />}</AuthGate>} />
       </Routes>
     </BrowserRouter>
   );

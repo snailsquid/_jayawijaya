@@ -16,6 +16,7 @@ import {
   type PaymentStatus,
   type ProviderUpdate,
 } from './midtrans';
+import { effectiveTier } from './entitlements';
 
 interface AuthUser { id: string; name: string; email: string }
 interface PaymentRow extends Record<string, unknown> {
@@ -361,6 +362,7 @@ export async function handlePayments(request: Request, env: Env, auth: Auth): Pr
         .bind(user.id, now, now).first();
       return json({
         payments: result.results.map(fromRow), products: paymentProductsForHostname(url.hostname),
+        tier: await effectiveTier(env.DB, user.id),
         entitlement: entitlement ? {
           plan: entitlement.plan, startsAt: entitlement.starts_at, expiresAt: entitlement.expires_at,
         } : null,
