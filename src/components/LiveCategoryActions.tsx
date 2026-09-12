@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Radio, Settings } from 'lucide-react';
 import type { Category, LiveCategory } from '@/types/quiz';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ShareCategoryModal } from './ShareCategoryModal';
 import { toast } from 'sonner';
 
@@ -23,6 +24,7 @@ export function LiveCategoryActions({ category, liveCategory, disabled, onCreate
     await onActivated?.();
     setSharing(live);
   } catch(reason) { toast.error(reason instanceof Error ? reason.message : 'Unable to share this category.'); } finally { setBusy(false); } };
-  return <><Button size="sm" variant="outline" disabled={disabled||busy||category.moduleIds.length===0} onClick={()=>void run()}>{liveCategory?.visibility === 'live'?<Settings/>:<Radio/>}{busy?'Sharing…':liveCategory?.visibility === 'live'?'Manage sharing':'Share live'}</Button>
-    {sharing&&<ShareCategoryModal category={sharing} url={`${window.location.origin}/shared-category/${sharing.shareToken}`} onClose={()=>setSharing(undefined)} />}</>;
+  const isLive=liveCategory?.visibility === 'live';
+  return <div className="flex items-center gap-2">{isLive&&<Badge variant="secondary">Live</Badge>}<Button size="sm" variant="outline" disabled={disabled||busy||category.moduleIds.length===0} onClick={()=>void run()}>{isLive?(liveCategory.isOwner?<Settings/>:<Radio/>):<Radio/>}{busy?'Sharing…':isLive?(liveCategory.isOwner?'Manage sharing':'Share'):'Share live'}</Button>
+    {sharing&&<ShareCategoryModal category={sharing} url={`${window.location.origin}${import.meta.env.BASE_URL}shared-category/${sharing.shareToken ?? sharing.shareCode}`} onClose={()=>setSharing(undefined)} onDisable={sharing.isOwner?async()=>{ await onSetSharing(sharing.id,false); setSharing(undefined); toast.success('Live category disabled.'); }:undefined} />}</div>;
 }

@@ -23,6 +23,8 @@ describe('LiveCategoryActions', () => {
     expect(onCreate).not.toHaveBeenCalled()
     expect(onSetSharing).not.toHaveBeenCalled()
     expect(screen.queryByText('Publish update')).not.toBeInTheDocument()
+    expect(screen.getByText('Live')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Disable live category' })).toBeInTheDocument()
   })
 
   it('refreshes modules after category sharing activates them', async () => {
@@ -37,5 +39,17 @@ describe('LiveCategoryActions', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(onSetSharing).toHaveBeenCalledWith('live-1', true)
     expect(onActivated).toHaveBeenCalledOnce()
+  })
+
+  it('lets subscribers reshare details without category management', async () => {
+    const subscriber = { ...liveCategory, isOwner: false, subscribed: true, shareToken: undefined }
+    const onSetSharing = vi.fn()
+    render(<LiveCategoryActions category={{ id: 'Rounds', name: 'Rounds', moduleIds: ['m1'] }} liveCategory={subscriber} onCreate={vi.fn()} onSetSharing={onSetSharing} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Share' }))
+
+    expect(screen.getByText('ABCD')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Disable live category' })).not.toBeInTheDocument()
+    expect(onSetSharing).not.toHaveBeenCalled()
   })
 })
