@@ -30,6 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { WorkspaceIdentity } from "../types/offline";
 import { ApiError } from "../lib/api";
 import { navigateBackOr } from "@/lib/frontend-display";
+import { toast } from "sonner";
 
 export function Start({ user }: { user: WorkspaceIdentity }) {
   const navigate = useNavigate();
@@ -82,10 +83,8 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set(),
   );
-  const [mutationError, setMutationError] = useState("");
   const [replacement, setReplacement] = useState<Module | null>(null);
   const [sharingModule, setSharingModule] = useState<Module | null>(null);
-  const [syncMessage, setSyncMessage] = useState("");
   const [guestImportIds, setGuestImportIds] = useState<string[] | null>(null);
   const [legacyModules, setLegacyModules] = useState<Module[]>(() => {
     try {
@@ -126,7 +125,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
     for (const category of liveCategoryRecords) {
       if (category.isOwner && !activeCategories.has(category.localCategoryId)) {
         void removeLiveCategory(category.id).catch((reason) =>
-          setMutationError(
+          toast.error(
             reason instanceof Error ? reason.message : "Unable to reset empty live category.",
           ),
         );
@@ -136,11 +135,10 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
 
   const handleUpload = useCallback(
     async (newModules: Module[]) => {
-      setMutationError("");
       try {
         await addModules(newModules);
       } catch (reason) {
-        setMutationError(
+        toast.error(
           reason instanceof Error ? reason.message : "Upload failed.",
         );
         throw reason;
@@ -157,7 +155,6 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
 
   const handleShare = useCallback(
     async (source: Module) => {
-      setMutationError("");
       try {
         if (
           source.visibility !== "live" &&
@@ -187,7 +184,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
         }
         setSharingModule(module);
       } catch (reason) {
-        setMutationError(
+        toast.error(
           reason instanceof Error ? reason.message : "Sharing failed.",
         );
       }
@@ -198,13 +195,13 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
   const handleSyncAll = useCallback(async () => {
     try {
       const updated = await syncAll();
-      setSyncMessage(
+      toast.success(
         updated
           ? `${updated} module(s) updated.`
           : "Live modules are up to date.",
       );
     } catch (reason) {
-      setMutationError(
+      toast.error(
         reason instanceof Error ? reason.message : "Update check failed.",
       );
     }
@@ -224,7 +221,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
     if (remaining.length === 0) localStorage.removeItem("jayawijaya-modules");
     else localStorage.setItem("jayawijaya-modules", JSON.stringify(remaining));
     if (remaining.length)
-      setMutationError(
+      toast.warning(
         `${legacyModules.length - remaining.length} imported; ${remaining.length} remain on this device.`,
       );
   }, [addModules, legacyModules]);
@@ -256,7 +253,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
   const handleDeleteModule = useCallback(
     (moduleId: string) => {
       void deleteModule(moduleId).catch((reason) =>
-        setMutationError(
+        toast.error(
           reason instanceof Error ? reason.message : "Delete failed.",
         ),
       );
@@ -301,7 +298,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
         updateModule(id, { categoryId: finalCategory }),
       ),
     ).catch((reason) =>
-      setMutationError(
+      toast.error(
         reason instanceof Error ? reason.message : "Category update failed.",
       ),
     );
@@ -312,7 +309,7 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
   const handleMassDelete = useCallback(() => {
     void Promise.all(config.selectedModuleIds.map(deleteModule)).catch(
       (reason) =>
-        setMutationError(
+        toast.error(
           reason instanceof Error ? reason.message : "Delete failed.",
         ),
     );
@@ -539,10 +536,10 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
                   onClick={() =>
                     void importGuestModules(selectedGuestImportIds)
                       .then((count) =>
-                        setSyncMessage(`${count} guest module(s) imported.`),
+                        toast.success(`${count} guest module(s) imported.`),
                       )
                       .catch((reason) =>
-                        setMutationError(
+                        toast.error(
                           reason instanceof Error
                             ? reason.message
                             : "Import failed.",
@@ -564,16 +561,9 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
               className="pl-9"
             />
           </div>
-          {syncMessage && (
-            <Alert>
-              <AlertDescription>{syncMessage}</AlertDescription>
-            </Alert>
-          )}
-          {(modulesError || mutationError) && (
+          {modulesError && (
             <Alert variant="destructive">
-              <AlertDescription>
-                {modulesError || mutationError}
-              </AlertDescription>
+              <AlertDescription>{modulesError}</AlertDescription>
             </Alert>
           )}
           {legacyModules.length > 0 && (
@@ -684,14 +674,13 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
           module={sharingModule}
           url={shareUrl(sharingModule)}
           onClose={() => setSharingModule(null)}
-          onCopied={setSyncMessage}
           onDisable={async () => {
             try {
               await setSharing(sharingModule.id, false);
               setSharingModule(null);
-              setSyncMessage("Live module disabled.");
+              toast.success("Live module disabled.");
             } catch (reason) {
-              setMutationError(
+              toast.error(
                 reason instanceof Error ? reason.message : "Unable to disable live module.",
               );
               throw reason;
