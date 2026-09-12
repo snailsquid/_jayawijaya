@@ -666,6 +666,18 @@ export function Start({ user }: { user: WorkspaceIdentity }) {
           url={shareUrl(sharingModule)}
           onClose={() => setSharingModule(null)}
           onCopied={setSyncMessage}
+          onDisable={async () => {
+            try {
+              await setSharing(sharingModule.id, false);
+              setSharingModule(null);
+              setSyncMessage("Live module disabled.");
+            } catch (reason) {
+              setMutationError(
+                reason instanceof Error ? reason.message : "Unable to disable live module.",
+              );
+              throw reason;
+            }
+          }}
         />
       )}
       <Card>

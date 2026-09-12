@@ -1,14 +1,15 @@
-import { useEffect } from 'react'
-import { Hash, Link } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Hash, Link, RadioTower } from 'lucide-react'
 import type { Module } from '@/types/quiz'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
-interface Props { module: Module; url: string; onClose: () => void; onCopied: (message: string) => void }
+interface Props { module: Module; url: string; onClose: () => void; onCopied: (message: string) => void; onDisable: () => Promise<void> }
 const copy = (value: string) => navigator.clipboard.writeText(value)
 
-export function ShareModuleModal({ module, url, onClose, onCopied }: Props) {
+export function ShareModuleModal({ module, url, onClose, onCopied, onDisable }: Props) {
   const code = module.shareCode
+  const [disabling, setDisabling] = useState(false)
   useEffect(() => { void copy(url).then(() => onCopied('Share link copied.')).catch(() => undefined) }, [onCopied, url])
   return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
     <DialogContent>
@@ -20,6 +21,7 @@ export function ShareModuleModal({ module, url, onClose, onCopied }: Props) {
       <DialogFooter className="sm:justify-start">
         <Button variant="outline" onClick={() => void copy(url).then(() => onCopied('Share link copied.'))}><Link /> Copy URL</Button>
         <Button variant="outline" disabled={!code} onClick={() => { if (code) void copy(code).then(() => onCopied('Module code copied.')) }}><Hash /> Copy code</Button>
+        <Button variant="destructive" disabled={disabling} onClick={() => { setDisabling(true); void onDisable().catch(() => undefined).finally(() => setDisabling(false)) }}><RadioTower /> {disabling ? 'Disabling…' : 'Disable live module'}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>
