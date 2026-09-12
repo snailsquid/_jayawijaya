@@ -45,7 +45,14 @@ async function replayMutation(workspaceId: string, originalMutation: ModuleMutat
       return;
     }
     if (mutation.kind === 'update') {
-      const { module } = await modulesApi.update(mutation.remoteId ?? remoteId(local, mutation.moduleId), mutation.patch, mutation.baseRevision);
+      const targetId = mutation.remoteId ?? remoteId(local, mutation.moduleId);
+      const { visibility, ...patch } = mutation.patch;
+      let module = local;
+      if (Object.keys(patch).length) module = (await modulesApi.update(targetId, patch, mutation.baseRevision)).module;
+      if (visibility !== undefined && visibility !== module?.visibility) {
+        module = (await modulesApi.setSharing(targetId, visibility === 'live')).module;
+      }
+      if (!module) throw new Error('Module not found.');
       await updateWorkspace(workspaceId, current => ({
         ...current,
         modules: current.modules.map(item => item.id === mutation.moduleId
@@ -210,7 +217,17 @@ export function useModules(workspace: WorkspaceIdentity) {
     return module;
   }, [cloudOnly, commit, store?.modules]);
 
-  const publishModule = useCallback(async (id: string, replacement: Module) => updateModule(id, replacement).then(() => replacement), [updateModule]);
+  const publishModule = useCallback(async (id: string, replacement: Module) => {
+    const patch: Partial<Module> = {
+      title: replacement.title,
+      description: replacement.description,
+      questions: replacement.questions,
+      hash: replacement.hash,
+      visibility: replacement.visibility,
+    };
+    await updateModule(id, patch);
+    return { ...replacement, id };
+  }, [updateModule]);
   const syncModule = useCallback(async (id: string) => { cloudOnly(); const { module } = await modulesApi.sync(remoteId(store?.modules.find(item => item.id === id), id)); await commit(current => ({ ...current, modules: current.modules.map(item => item.id === id ? { ...module, id, remoteId: item.remoteId } : item) })); }, [cloudOnly, commit, store?.modules]);
   const syncAll = useCallback(async () => { cloudOnly(); await syncNow(); return 0; }, [cloudOnly, syncNow]);
 

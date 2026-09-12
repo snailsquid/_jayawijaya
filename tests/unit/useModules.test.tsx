@@ -92,6 +92,29 @@ describe('useModules usage', () => {
     expect(result.current.modules[0]).toEqual(enlarged);
   });
 
+  it('keeps the stable module identity and syncs live state when replacing content', async () => {
+    const workspace = { id: crypto.randomUUID(), kind: 'account' as const, name: 'Test' };
+    const cached = { ...original, id: 'stable-local-id', remoteId: 'server-id', revision: '1:old:', visibility: 'private' as const };
+    const replacement = { ...cached, id: 'pasted-123', title: 'Revised', hash: 'new-hash', visibility: 'live' as const };
+    const updated = { ...cached, title: 'Revised', hash: 'new-hash', revision: '2:new:' };
+    const shared = { ...updated, visibility: 'live' as const, shareCode: 'ABCD' };
+    await writeWorkspace({ ...emptyWorkspace(workspace.id), modules: [cached] });
+    api.update.mockResolvedValue({ module: updated });
+    api.setSharing.mockResolvedValue({ module: shared });
+    api.list
+      .mockResolvedValueOnce({ modules: [{ ...cached, id: 'server-id' }], usage: { moduleCount: 1, usedBytes: bytes(cached) }, limits: emptyWorkspace(workspace.id).limits })
+      .mockResolvedValue({ modules: [{ ...shared, id: 'server-id' }], usage: { moduleCount: 1, usedBytes: bytes(shared) }, limits: emptyWorkspace(workspace.id).limits });
+    const { result } = renderHook(() => useModules(workspace));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(() => result.current.publishModule(cached.id, replacement));
+    await waitFor(() => expect(api.setSharing).toHaveBeenCalledWith('server-id', true));
+
+    expect(api.update).toHaveBeenCalledWith('server-id', expect.not.objectContaining({ id: expect.anything() }), cached.revision);
+    expect(result.current.modules[0]).toMatchObject({ id: cached.id, remoteId: 'server-id', title: 'Revised', visibility: 'live' });
+    expect(result.current.syncErrors).toEqual([]);
+  });
+
   it('keeps guest changes locally without calling the server', async () => {
     const workspace = { id: `guest-${crypto.randomUUID()}`, kind: 'guest' as const, name: 'Guest' };
     const { result } = renderHook(() => useModules(workspace));
